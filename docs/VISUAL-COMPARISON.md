@@ -12,7 +12,9 @@ Os quadros do desenho **não são reproduzidos aqui**: são material de terceiro
 
 Referência: `uni-fullbody-walk-side-s01e01-t0250s.jpg` — S01E01, 04:10.
 
-Pelagem branca, crina e cauda laranja, chifre dourado, escala de filhote contra a altura dos olhos de Bobby (1,2 m). O que não bate: as patas não se movem, porque não há esqueleto — está na [issue #17](https://github.com/renatobardi/dungeons-and-dragons-final-episode/issues/17), fora do MVP.
+Pelagem branca, crina e cauda laranja, chifre dourado, escala de filhote contra a altura dos olhos de Bobby (1,2 m).
+
+Esta captura é **anterior ao rig**: quando ela foi tirada, a Uni era malha única e as patas não se mexiam. O [ticket 13](https://github.com/renatobardi/dungeons-and-dragons-final-episode/issues/17) fechou isso em 12/09/2026 — ela tem esqueleto quadrúpede, anda com as quatro patas e o passo casa com a velocidade da simulação sem deslizar. O que a imagem mostra da aparência continua valendo; o que ela mostra da pose, não.
 
 ### Arco do pórtico
 
