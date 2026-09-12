@@ -69,6 +69,26 @@ Branch `claude/ticket-01-uni-3d-art`, tirada de `feat/mvp-cenotafio`.
 - **Decisões suas de 12/09/2026:** aparência da Uni **aprovada**; a animação de patas fica fora do MVP (ticket 13, aberto); as três tochas com luz ficam como estão; teste no Safari dispensado. Com isso o ticket 01 fecha.
 - **Medições com a Uni na cena** (Chrome 153, WebGPU, M5): 120 fps, p95 9,7 ms, 0 quadros acima de 33 ms em 3024×1890; 2,1 MB transferidos a frio contra 0,6 MB antes. `pnpm verify` verde: lint, types, 41 testes Vitest, build e 7 cenários Playwright.
 
+## Onde os tickets vivem
+
+Desde 12/09/2026 os 13 tickets do MVP são **issues do GitHub** ([#5 a #17](https://github.com/renatobardi/dungeons-and-dragons-final-episode/issues)), como o `AGENTS.md` sempre disse. Os bloqueios usam as dependências nativas do GitHub. Os markdown em `.scratch/mvp-cenotafio/issues/` viraram rascunho: a fonte da verdade é o tracker.
+
+| Ticket | Issue | Estado |
+| --- | --- | --- |
+| 01 Arte da Uni | #5 | fechado |
+| 02 Abre, jogar e pausa | #6 | fechado |
+| 03 Andar e olhar | #7 | fechado |
+| 04 Tacape e passagem | #8 | fechado |
+| 05 Uni segue e alerta | #9 | fechado |
+| 06 Saída e reinício | #10 | fechado |
+| 07 Cenotáfio com arte final | #11 | aberto |
+| 08 Uni final no jogo | #12 | aberto (parcial) |
+| 09 Mãos, tacape e obstáculo | #13 | aberto |
+| 10 Áudio e interface | #14 | fechado |
+| 11 Evidência visual | #15 | aberto |
+| 12 Teste com uma pessoa | #16 | aberto |
+| 13 Rig quadrúpede | #17 | aberto, fora do MVP |
+
 ## Decisões do produtor — 12/09/2026, fim da tarde
 
 Perguntas 4, 5 e 6 desta lista estão respondidas; ficam abaixo só para histórico.

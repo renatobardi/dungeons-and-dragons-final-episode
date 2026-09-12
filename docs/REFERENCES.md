@@ -78,10 +78,54 @@ Conta Meshy Premium do produtor; a chave fica na configuração global do Claude
 
 **Rigging e animação não existem no Meshy para quadrúpede.** O catálogo público de animações (`GET https://api.meshy.ai/web/public/animations/resources`, 680 ações) é inteiramente bípede (`biped`, `style_01/02/03`). Parada, andar e alerta da Uni são feitos por código no Babylon a partir do estado da simulação.
 
+## Recursos gerados no Meshy (ticket 07 — Cenotáfio)
+
+Saldo antes: 3021. Depois: 2871.
+
+| Etapa | Ferramenta | Créditos | Resultado |
+| --- | --- | --- | --- |
+| Coluna A | `image-to-3d`, Meshy 7, recorte de `stone-hall-door-columns` | 30 | Descartada: leu a perspectiva diagonal do quadro como espiral, e 1,95 M tris |
+| Coluna B | `image-to-3d`, smart-topology, mesmo recorte | 15 | Boa forma, mas proporção atarracada (1,65:1) — esticada virava poste, empilhada repetia base e capitel |
+| Coluna C | `image-to-3d`, smart-topology, recorte do capitel jônico | 15 | Descartada: forma boa, cor roxa herdada da luz do quadro |
+| Imagem de referência | `text-to-image`, nano-banana, 9:16 | 3 | Coluna alta e esbelta isolada em fundo branco, com base e capitel só nas pontas |
+| **Coluna D** | `image-to-3d`, smart-topology, a partir da imagem gerada | 15 | **No jogo**: 4232 tris, proporção 3,53:1, tambores com juntas |
+| Imagem dos escombros intactos | `text-to-image`, nano-banana | 3 | Pilha de lajes empilhadas, isolada em fundo branco |
+| Escombros intactos | `image-to-3d`, smart-topology | 15 | **No jogo**: 4310 tris, relevo raso (profundidade 0,14) |
+| Imagem dos escombros quebrados | `text-to-image`, nano-banana | 3 | Monte baixo de cacos, isolado |
+| Escombros quebrados | `image-to-3d`, smart-topology | 15 | **No jogo**: 3564 tris |
+| Imagem do arco | `text-to-image`, nano-banana | 3 | Arco gótico isolado, vão vazado |
+| Arco do pórtico | `image-to-3d`, smart-topology | 15 | **No jogo**: 4374 tris, só visual, sem colisor |
+| Imagem da estátua | `text-to-image`, nano-banana, 9:16 | 3 | Gárgula de pé sobre plinto, isolada |
+| Estátua | `image-to-3d`, smart-topology | 15 | **No jogo**: 4346 tris, duas cópias nas paredes norte e sul da sala |
+| **Total** | | **150** | |
+
+A lição que se repetiu: o caminho caro (Meshy 7 a partir de quadro do desenho) erra a leitura de forma; o `smart-topology` a partir de uma **imagem limpa e isolada** acerta, sai leve e custa metade. Gerar a imagem de referência antes (3 créditos) é o que dá controle de proporção.
+
+## Recursos gerados no Meshy (ticket 09 — mãos e tacape)
+
+| Etapa | Ferramenta | Créditos | Resultado |
+| --- | --- | --- | --- |
+| Imagem do tacape | `text-to-image`, nano-banana | 3 | Descartada: saiu maça com nós e couro, não a clava do Bobby |
+| Tacape (1ª tentativa) | `image-to-3d`, smart-topology | 15 | Descartado pelo produtor: forma errada |
+| Imagem da clava | `text-to-image`, nano-banana | 3 | Clava lisa e cônica, como na figura de ação e no desenho |
+| Clava | `image-to-3d`, smart-topology | 15 | **No jogo**: 4194 tris |
+| Imagem da mão | `text-to-image`, nano-banana | 3 | Punho fechado com punho de pele, isolado |
+| Mão | `image-to-3d`, smart-topology | 15 | **No jogo**: 4367 tris, espelhada para a mão esquerda |
+| **Total** | | **54** | |
+
+Saldo depois: 2817. O tacape precisou de duas rodadas: a primeira descrição produziu uma maça com nós, e a referência correta (figura de ação e arte do desenho) é uma clava lisa que afina até o punho.
+
 ## Recurso no jogo
 
 | Identificador | Origem | Licença/permissão | Formato | Tamanho | Situação |
 | --- | --- | --- | --- | --- | --- |
+| `bobby-club` | Gerado no Meshy a partir de imagem própria, guiada pela figura de ação oficial | Conta Meshy Premium do produtor; saída própria | `public/models/bobby/club.glb` + textura | 164 KB + textura | No jogo desde 12/09/2026 |
+| `bobby-hand` | Gerado no Meshy a partir de imagem própria | Conta Meshy Premium do produtor; saída própria | `public/models/bobby/hand.glb` + textura | 202 KB + 211 KB | No jogo desde 12/09/2026 |
+| `cenotaph-arch` | Gerado no Meshy a partir de imagem própria | Conta Meshy Premium do produtor; saída própria | `public/models/cenotaph/arch.glb` + textura | 193 KB + 105 KB | No jogo desde 12/09/2026 |
+| `cenotaph-statue` | Gerado no Meshy a partir de imagem própria | Conta Meshy Premium do produtor; saída própria | `public/models/cenotaph/statue.glb` + textura | 175 KB + 75 KB | No jogo desde 12/09/2026 |
+| `cenotaph-rubble-intact` | Gerado no Meshy a partir de imagem própria | Conta Meshy Premium do produtor; saída própria | `public/models/cenotaph/rubble-intact.glb` + textura | 199 KB + 262 KB | No jogo desde 12/09/2026 |
+| `cenotaph-rubble-broken` | Gerado no Meshy a partir de imagem própria | Conta Meshy Premium do produtor; saída própria | `public/models/cenotaph/rubble-broken.glb` + textura | 182 KB + 287 KB | No jogo desde 12/09/2026 |
+| `cenotaph-column` | Gerado no Meshy a partir de imagem própria (`text-to-image`), guiada pelos quadros `stone-hall-door-columns` e `stone-column-light` | Conta Meshy Premium do produtor; saída própria | `public/models/cenotaph/column.glb` + `column-base-color.jpg` | 184 KB + 51 KB | No jogo desde 12/09/2026; aprovação pendente |
 | `uni` | Gerado no Meshy a partir de `uni-fullbody-walk-side-s01e01-t0250s.jpg` (quadro do desenho, referência interna) | Conta Meshy Premium do produtor; saída própria. A referência é material protegido de terceiros, usada só como entrada de estilo | `public/models/uni/uni.glb` + `uni-base-color.jpg` | 1,24 MB + 277 KB | No jogo desde 12/09/2026; aparência aprovada por escrito pelo produtor em 12/09/2026 |
 
 ## Pendente
