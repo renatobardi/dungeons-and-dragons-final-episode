@@ -14,9 +14,9 @@ const CLUB_TEXTURE = "models/bobby/club-base-color.jpg";
 const HAND_URL = "models/bobby/hand.glb";
 const HAND_TEXTURE = "models/bobby/hand-base-color.jpg";
 /** Distance from the gripping hand to the club head in the provisional rig. */
-const CLUB_LENGTH = 0.5;
+const CLUB_LENGTH = 0.48;
 /** Bobby's club is a heavy blunt thing; the generated mesh comes out far too slim for it. */
-const CLUB_THICKNESS = 1.9;
+const CLUB_THICKNESS = 1.55;
 const HAND_SIZE = 0.13;
 /** Where the closed right hand sits in the rig, and so where the club's grip has to land. */
 const GRIP = { x: 0, y: -0.05, z: -0.02 };
