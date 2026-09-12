@@ -39,6 +39,15 @@ const RUBBLE_INTACT_URL = "models/cenotaph/rubble-intact.glb";
 const RUBBLE_INTACT_TEXTURE = "models/cenotaph/rubble-intact-base-color.jpg";
 const RUBBLE_BROKEN_URL = "models/cenotaph/rubble-broken.glb";
 const RUBBLE_BROKEN_TEXTURE = "models/cenotaph/rubble-broken-base-color.jpg";
+const ARCH_URL = "models/cenotaph/arch.glb";
+const ARCH_TEXTURE = "models/cenotaph/arch-base-color.jpg";
+const STATUE_URL = "models/cenotaph/statue.glb";
+const STATUE_TEXTURE = "models/cenotaph/statue-base-color.jpg";
+/** Statues stand against the north and south walls of the room, clear of the columns at x 12.5 and 17.5. */
+const STATUE_SPOTS: [number, number, number][] = [
+  [15, 21.4, Math.PI],
+  [15, 12.6, 0],
+];
 import { HandsView } from "./hands-view";
 
 export interface QualitySettings {
@@ -176,7 +185,7 @@ export class SceneView {
 
     this.uni = new UniView(scene, this.shadow);
     this.hands = new HandsView(scene, this.camera);
-    this.ready = Promise.all([this.uni.loaded, this.loadColumns(), this.loadObstacle()]).then(() => undefined);
+    this.ready = Promise.all([this.uni.loaded, this.loadColumns(), this.loadObstacle(), this.loadDecor()]).then(() => undefined);
 
     // WebGPU allows 12 uniform buffers per shader stage. With Uni's model in the scene the room cannot
     // afford a light per torch, so only the nearest three torches cast light; the flames still glow.
@@ -337,6 +346,61 @@ export class SceneView {
     ]);
   }
 
+  /** Decoration with no collider: the arch framing the portico mouth and the statues along the room. */
+  private async loadDecor(): Promise<void> {
+    const paint = (name: string, texture: string): PBRMaterial => {
+      const mat = new PBRMaterial(name, this.scene);
+      mat.albedoTexture = new Texture(texture, this.scene, { invertY: false });
+      mat.metallic = 0;
+      mat.roughness = 0.92;
+      mat.maxSimultaneousLights = 2;
+      return mat;
+    };
+
+    const [archBox, statueBox] = await Promise.all([
+      loadAssetContainerAsync(ARCH_URL, this.scene, { pluginOptions: { gltf: { skipMaterials: true } } }),
+      loadAssetContainerAsync(STATUE_URL, this.scene, { pluginOptions: { gltf: { skipMaterials: true } } }),
+    ]);
+    if (this.scene.isDisposed) {
+      archBox.dispose();
+      statueBox.dispose();
+      return;
+    }
+    archBox.addAllToScene();
+    statueBox.addAllToScene();
+
+    const arch = archBox.meshes.find((m) => m.getTotalVertices() > 0);
+    if (arch) {
+      arch.parent = null;
+      arch.material = paint("archPainted", ARCH_TEXTURE);
+      arch.receiveShadows = false;
+      const size = arch.getBoundingInfo().boundingBox.extendSize.scale(2);
+      const MOUTH = 3; // the corridor opening the portico wall leaves
+      const up = 4 / size.y;
+      arch.scaling = new Vector3(MOUTH / size.x, up, MOUTH / size.x);
+      arch.rotationQuaternion = null;
+      arch.position = new Vector3(0, (size.y * up) / 2, 4);
+      this.shadow.addShadowCaster(arch as Mesh);
+    }
+
+    const statue = statueBox.meshes.find((m) => m.getTotalVertices() > 0);
+    if (statue) {
+      statue.parent = null;
+      statue.material = paint("statuePainted", STATUE_TEXTURE);
+      statue.receiveShadows = false;
+      const size = statue.getBoundingInfo().boundingBox.extendSize.scale(2);
+      const up = 2.2 / size.y;
+      statue.scaling = new Vector3(up, up, up);
+      STATUE_SPOTS.forEach(([x, z, facing], i) => {
+        const piece = i === 0 ? (statue as Mesh) : (statue as Mesh).createInstance(`statue${i}`);
+        piece.rotationQuaternion = null;
+        piece.rotation.y = facing;
+        piece.position = new Vector3(x, (size.y * up) / 2, z);
+        this.shadow.addShadowCaster(piece as Mesh);
+      });
+    }
+  }
+
   private async loadColumns(): Promise<void> {
     if (this.level.columns.length === 0) return;
     const container = await loadAssetContainerAsync(COLUMN_MODEL_URL, this.scene, { pluginOptions: { gltf: { skipMaterials: true } } });
@@ -347,6 +411,11 @@ export class SceneView {
     container.addAllToScene();
     const source = container.meshes.find((m) => m.getTotalVertices() > 0);
     if (!source) return;
+
+    // the glTF loader wraps the mesh in a __root__ scaled -1 on X to convert handedness; anything placed
+    // while still parented to it lands mirrored, so the piece is detached before it is put in the room
+    source.parent = null;
+    source.rotationQuaternion = null;
 
     const painted = new PBRMaterial("columnPainted", this.scene);
     painted.albedoTexture = new Texture(COLUMN_TEXTURE_URL, this.scene, { invertY: false });

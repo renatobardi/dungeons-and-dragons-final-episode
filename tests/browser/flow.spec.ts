@@ -62,6 +62,9 @@ test.describe("cenotaph entrance flow", () => {
   test("P07: Esc pauses and releases the mouse; losing focus pauses; Bobby does not keep moving", async ({ page }) => {
     await expect(page.locator("body")).toHaveAttribute("data-state", "ready", { timeout: 30_000 });
     await page.click("#play");
+    // the first frames compile the shaders for every kit piece; on a software renderer that eats into the
+    // wall-clock second below, and the simulation clamps its step, so Bobby would cover less ground
+    await page.waitForTimeout(1000);
     await page.keyboard.down("KeyW");
     await page.waitForTimeout(300);
     await page.keyboard.press("Escape");
@@ -105,21 +108,21 @@ test.describe("cenotaph entrance flow", () => {
   test("P02: real keys walk Bobby down the corridor and stop him at the portico wall", async ({ page }) => {
     await expect(page.locator("body")).toHaveAttribute("data-state", "ready", { timeout: 30_000 });
     await page.click("#play");
+    // Held keys are read once per frame and the simulation clamps its step, so a wall-clock wait would
+    // measure the renderer, not the controls. Each wait below watches the simulation instead.
     await page.keyboard.down("KeyW");
-    await page.waitForTimeout(1000);
+    await page.waitForFunction(() => window.__game!.snapshot().player.z > 2.5, null, { timeout: 20_000 });
     await page.keyboard.up("KeyW");
     const z = await page.evaluate(() => window.__game!.snapshot().player.z);
-    expect(z).toBeGreaterThan(2.5);
     expect(z).toBeLessThan(4.5);
     await page.keyboard.down("KeyS");
-    await page.waitForTimeout(1200);
+    await page.waitForFunction(() => window.__game!.snapshot().player.z < 1.5, null, { timeout: 20_000 });
     await page.keyboard.up("KeyS");
     await page.keyboard.down("KeyD");
-    await page.waitForTimeout(1500);
+    await page.waitForFunction(() => window.__game!.snapshot().player.x > 2, null, { timeout: 20_000 });
     await page.keyboard.up("KeyD");
     const s = await page.evaluate(() => window.__game!.snapshot().player);
-    expect(s.x).toBeGreaterThan(2);
-    expect(s.x).toBeLessThanOrEqual(3);
+    expect(s.x).toBeLessThanOrEqual(3); // the portico wall stops him
     expect(errors).toEqual([]);
   });
 
@@ -129,26 +132,27 @@ test.describe("cenotaph entrance flow", () => {
     const start = await page.evaluate(() => window.__game!.snapshot().player);
 
     await page.keyboard.down("ArrowRight");
-    await page.waitForTimeout(600);
+    await page.waitForFunction((y) => window.__game!.snapshot().player.yaw > y + 0.5, start.yaw, { timeout: 20_000 });
     await page.keyboard.up("ArrowRight");
     const turned = await page.evaluate(() => window.__game!.snapshot().player);
-    expect(Math.abs(turned.yaw - start.yaw)).toBeGreaterThan(0.5);
-    expect(Math.hypot(turned.x - start.x, turned.z - start.z)).toBeLessThan(0.2);
+    expect(Math.hypot(turned.x - start.x, turned.z - start.z)).toBeLessThan(0.2); // turning is not walking
 
     await page.keyboard.down("ArrowLeft");
-    await page.waitForTimeout(600);
+    await page.waitForFunction((y) => window.__game!.snapshot().player.yaw < y - 0.5, turned.yaw, { timeout: 20_000 });
     await page.keyboard.up("ArrowLeft");
     const back = await page.evaluate(() => window.__game!.snapshot().player.yaw);
-    expect(back).toBeLessThan(turned.yaw - 0.5); // the other arrow turns the other way
 
     await page.keyboard.down("Alt");
     await page.keyboard.down("ArrowRight");
-    await page.waitForTimeout(800);
+    await page.waitForFunction(
+      (p) => Math.hypot(window.__game!.snapshot().player.x - p.x, window.__game!.snapshot().player.z - p.z) > 0.5,
+      { x: turned.x, z: turned.z },
+      { timeout: 20_000 },
+    );
     await page.keyboard.up("ArrowRight");
     await page.keyboard.up("Alt");
     const strafed = await page.evaluate(() => window.__game!.snapshot().player);
     expect(strafed.yaw).toBeCloseTo(back, 5); // Alt turns the arrows into strafe, so the view holds still
-    expect(Math.hypot(strafed.x - turned.x, strafed.z - turned.z)).toBeGreaterThan(0.5);
     expect(errors).toEqual([]);
   });
 

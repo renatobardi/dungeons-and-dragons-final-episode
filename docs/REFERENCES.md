@@ -80,7 +80,7 @@ Conta Meshy Premium do produtor; a chave fica na configuração global do Claude
 
 ## Recursos gerados no Meshy (ticket 07 — Cenotáfio)
 
-Saldo antes: 3021. Depois: 2907.
+Saldo antes: 3021. Depois: 2871.
 
 | Etapa | Ferramenta | Créditos | Resultado |
 | --- | --- | --- | --- |
@@ -93,7 +93,11 @@ Saldo antes: 3021. Depois: 2907.
 | Escombros intactos | `image-to-3d`, smart-topology | 15 | **No jogo**: 4310 tris, relevo raso (profundidade 0,14) |
 | Imagem dos escombros quebrados | `text-to-image`, nano-banana | 3 | Monte baixo de cacos, isolado |
 | Escombros quebrados | `image-to-3d`, smart-topology | 15 | **No jogo**: 3564 tris |
-| **Total** | | **114** | |
+| Imagem do arco | `text-to-image`, nano-banana | 3 | Arco gótico isolado, vão vazado |
+| Arco do pórtico | `image-to-3d`, smart-topology | 15 | **No jogo**: 4374 tris, só visual, sem colisor |
+| Imagem da estátua | `text-to-image`, nano-banana, 9:16 | 3 | Gárgula de pé sobre plinto, isolada |
+| Estátua | `image-to-3d`, smart-topology | 15 | **No jogo**: 4346 tris, duas cópias nas paredes norte e sul da sala |
+| **Total** | | **150** | |
 
 A lição que se repetiu: o caminho caro (Meshy 7 a partir de quadro do desenho) erra a leitura de forma; o `smart-topology` a partir de uma **imagem limpa e isolada** acerta, sai leve e custa metade. Gerar a imagem de referência antes (3 créditos) é o que dá controle de proporção.
 
@@ -101,6 +105,8 @@ A lição que se repetiu: o caminho caro (Meshy 7 a partir de quadro do desenho)
 
 | Identificador | Origem | Licença/permissão | Formato | Tamanho | Situação |
 | --- | --- | --- | --- | --- | --- |
+| `cenotaph-arch` | Gerado no Meshy a partir de imagem própria | Conta Meshy Premium do produtor; saída própria | `public/models/cenotaph/arch.glb` + textura | 193 KB + 105 KB | No jogo desde 12/09/2026 |
+| `cenotaph-statue` | Gerado no Meshy a partir de imagem própria | Conta Meshy Premium do produtor; saída própria | `public/models/cenotaph/statue.glb` + textura | 175 KB + 75 KB | No jogo desde 12/09/2026 |
 | `cenotaph-rubble-intact` | Gerado no Meshy a partir de imagem própria | Conta Meshy Premium do produtor; saída própria | `public/models/cenotaph/rubble-intact.glb` + textura | 199 KB + 262 KB | No jogo desde 12/09/2026 |
 | `cenotaph-rubble-broken` | Gerado no Meshy a partir de imagem própria | Conta Meshy Premium do produtor; saída própria | `public/models/cenotaph/rubble-broken.glb` + textura | 182 KB + 287 KB | No jogo desde 12/09/2026 |
 | `cenotaph-column` | Gerado no Meshy a partir de imagem própria (`text-to-image`), guiada pelos quadros `stone-hall-door-columns` e `stone-column-light` | Conta Meshy Premium do produtor; saída própria | `public/models/cenotaph/column.glb` + `column-base-color.jpg` | 184 KB + 51 KB | No jogo desde 12/09/2026; aprovação pendente |
