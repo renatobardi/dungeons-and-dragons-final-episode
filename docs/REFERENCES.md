@@ -78,10 +78,26 @@ Conta Meshy Premium do produtor; a chave fica na configuração global do Claude
 
 **Rigging e animação não existem no Meshy para quadrúpede.** O catálogo público de animações (`GET https://api.meshy.ai/web/public/animations/resources`, 680 ações) é inteiramente bípede (`biped`, `style_01/02/03`). Parada, andar e alerta da Uni são feitos por código no Babylon a partir do estado da simulação.
 
+## Recursos gerados no Meshy (ticket 07 — Cenotáfio)
+
+Saldo antes: 3021. Depois: 2943.
+
+| Etapa | Ferramenta | Créditos | Resultado |
+| --- | --- | --- | --- |
+| Coluna A | `image-to-3d`, Meshy 7, recorte de `stone-hall-door-columns` | 30 | Descartada: leu a perspectiva diagonal do quadro como espiral, e 1,95 M tris |
+| Coluna B | `image-to-3d`, smart-topology, mesmo recorte | 15 | Boa forma, mas proporção atarracada (1,65:1) — esticada virava poste, empilhada repetia base e capitel |
+| Coluna C | `image-to-3d`, smart-topology, recorte do capitel jônico | 15 | Descartada: forma boa, cor roxa herdada da luz do quadro |
+| Imagem de referência | `text-to-image`, nano-banana, 9:16 | 3 | Coluna alta e esbelta isolada em fundo branco, com base e capitel só nas pontas |
+| **Coluna D** | `image-to-3d`, smart-topology, a partir da imagem gerada | 15 | **No jogo**: 4232 tris, proporção 3,53:1, tambores com juntas |
+| **Total** | | **78** | |
+
+A lição que se repetiu: o caminho caro (Meshy 7 a partir de quadro do desenho) erra a leitura de forma; o `smart-topology` a partir de uma **imagem limpa e isolada** acerta, sai leve e custa metade. Gerar a imagem de referência antes (3 créditos) é o que dá controle de proporção.
+
 ## Recurso no jogo
 
 | Identificador | Origem | Licença/permissão | Formato | Tamanho | Situação |
 | --- | --- | --- | --- | --- | --- |
+| `cenotaph-column` | Gerado no Meshy a partir de imagem própria (`text-to-image`), guiada pelos quadros `stone-hall-door-columns` e `stone-column-light` | Conta Meshy Premium do produtor; saída própria | `public/models/cenotaph/column.glb` + `column-base-color.jpg` | 184 KB + 51 KB | No jogo desde 12/09/2026; aprovação pendente |
 | `uni` | Gerado no Meshy a partir de `uni-fullbody-walk-side-s01e01-t0250s.jpg` (quadro do desenho, referência interna) | Conta Meshy Premium do produtor; saída própria. A referência é material protegido de terceiros, usada só como entrada de estilo | `public/models/uni/uni.glb` + `uni-base-color.jpg` | 1,24 MB + 277 KB | No jogo desde 12/09/2026; aparência aprovada por escrito pelo produtor em 12/09/2026 |
 
 ## Pendente

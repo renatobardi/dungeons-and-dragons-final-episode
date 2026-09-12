@@ -7,6 +7,7 @@ import { DirectionalLight } from "@babylonjs/core/Lights/directionalLight";
 import { PointLight } from "@babylonjs/core/Lights/pointLight";
 import { ShadowGenerator } from "@babylonjs/core/Lights/Shadows/shadowGenerator";
 import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder";
+import { loadAssetContainerAsync } from "@babylonjs/core/Loading/sceneLoader";
 import { Mesh } from "@babylonjs/core/Meshes/mesh";
 import { TransformNode } from "@babylonjs/core/Meshes/transformNode";
 import { PBRMaterial } from "@babylonjs/core/Materials/PBR/pbrMaterial";
@@ -27,6 +28,13 @@ import type { Box } from "../sim/geometry";
 import type { SimEvent, Snapshot } from "../sim/simulation";
 import { paintedTexture, RUBBLE, STONE_FLOOR, STONE_WALL } from "./textures";
 import { UniView } from "./uni-view";
+import { fitScale } from "./fit";
+
+/** Cenotaph kit: the column made in ticket 07 and the painted stone that goes with it. */
+const COLUMN_MODEL_URL = "models/cenotaph/column.glb";
+const COLUMN_TEXTURE_URL = "models/cenotaph/column-base-color.jpg";
+/** The volume the level already reserves for a column, so the colliders stay where they are. */
+const COLUMN_SIZE = { x: 0.8, y: 4, z: 0.8 };
 import { HandsView } from "./hands-view";
 
 export interface QualitySettings {
@@ -100,13 +108,16 @@ export class SceneView {
     ceiling.rotation.x = Math.PI;
     ceiling.material = wallMat;
 
-    level.walls.forEach((b, i) => {
+    // the column colliders live in the wall list too; the kit model stands in their place, so the box
+    // that would hide it is not drawn
+    const isColumn = (b: Box): boolean =>
+      level.columns.some((c) => Math.abs((b.minX + b.maxX) / 2 - c.x) < 0.01 && Math.abs((b.minZ + b.maxZ) / 2 - c.z) < 0.01);
+    level.walls.filter((b) => !isColumn(b)).forEach((b, i) => {
       const m = this.boxMesh(`wall${i}`, b);
       m.material = wallMat;
       m.receiveShadows = true;
       this.shadow.addShadowCaster(m);
     });
-    this.columns(wallMat);
 
     // torches along the route
     const torchSpots: [number, number, number][] = [
@@ -161,7 +172,7 @@ export class SceneView {
 
     this.uni = new UniView(scene, this.shadow);
     this.hands = new HandsView(scene, this.camera);
-    this.ready = this.uni.loaded;
+    this.ready = Promise.all([this.uni.loaded, this.loadColumns()]).then(() => undefined);
 
     // WebGPU allows 12 uniform buffers per shader stage. With Uni's model in the scene the room cannot
     // afford a light per torch, so only the nearest three torches cast light; the flames still glow.
@@ -269,19 +280,39 @@ export class SceneView {
     return m;
   }
 
-  private columns(mat: PBRMaterial): void {
-    // columns hugging the walls of the room and the corridor; their colliders live in the level definition
+  /**
+   * Columns come from the Cenotaph kit (ticket 07). The collider each one gets in the level definition
+   * is the volume the model is stretched into, so the simulation keeps the boxes it always had.
+   * Same recipe as Uni: the mesh is loaded bare and painted here, or the glTF material carries every
+   * scene light into the vertex stage and WebGPU rejects the frame.
+   */
+  private async loadColumns(): Promise<void> {
+    if (this.level.columns.length === 0) return;
+    const container = await loadAssetContainerAsync(COLUMN_MODEL_URL, this.scene, { pluginOptions: { gltf: { skipMaterials: true } } });
+    if (this.scene.isDisposed) {
+      container.dispose();
+      return;
+    }
+    container.addAllToScene();
+    const source = container.meshes.find((m) => m.getTotalVertices() > 0);
+    if (!source) return;
+
+    const painted = new PBRMaterial("columnPainted", this.scene);
+    painted.albedoTexture = new Texture(COLUMN_TEXTURE_URL, this.scene, { invertY: false });
+    painted.metallic = 0;
+    painted.roughness = 0.9;
+    painted.maxSimultaneousLights = 2;
+    source.material = painted;
+    source.receiveShadows = false;
+
+    const size = source.getBoundingInfo().boundingBox.extendSize.scale(2);
+    const fit = fitScale({ x: size.x, y: size.y, z: size.z }, COLUMN_SIZE);
+    source.scaling = new Vector3(fit.x, fit.y, fit.z);
+
     this.level.columns.forEach(({ x, z }, i) => {
-      const c = MeshBuilder.CreateCylinder(`col${i}`, { height: 4, diameter: 0.8, tessellation: 14 }, this.scene);
-      c.position = new Vector3(x, 2, z);
-      c.material = mat;
-      c.receiveShadows = true;
-      this.shadow.addShadowCaster(c);
-      const cap = MeshBuilder.CreateBox(`cap${i}`, { width: 1.1, height: 0.3, depth: 1.1 }, this.scene);
-      cap.position = new Vector3(x, 3.85, z);
-      cap.material = mat;
-      const base = cap.clone(`base${i}`);
-      base.position.y = 0.15;
+      const piece = i === 0 ? (source as Mesh) : (source as Mesh).createInstance(`col${i}`);
+      piece.position = new Vector3(x, COLUMN_SIZE.y / 2, z);
+      this.shadow.addShadowCaster(piece as Mesh);
     });
   }
 
