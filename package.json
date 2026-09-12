@@ -1,0 +1,38 @@
+{
+  "name": "caverna-do-dragao-episodio-final",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Caverna do Dragão — Episódio Final: first-person browser game with Bobby and Uni",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview --port 4173 --strictPort",
+    "lint": "eslint .",
+    "types": "tsc --noEmit",
+    "test": "vitest run",
+    "test:browser": "playwright test",
+    "measure": "node scripts/measure.ts",
+    "verify": "pnpm lint && pnpm types && pnpm test && pnpm build && pnpm test:browser"
+  },
+  "devEngines": {
+    "packageManager": {
+      "name": "pnpm",
+      "version": "^11.22.0",
+      "onFail": "download"
+    }
+  },
+  "dependencies": {
+    "@babylonjs/core": "^8.56.2"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.63.0",
+    "@types/node": "^22.20.2",
+    "eslint": "^10.10.0",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.70.0",
+    "vite": "^8.3.0",
+    "vitest": "^5.0.0"
+  }
+}
