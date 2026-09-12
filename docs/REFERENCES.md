@@ -61,7 +61,29 @@ Grupo: `uni` = modelo/animação da Uni; `bobby` = mãos, tacape, proporções; 
 - `bobby-hands-club-closeup-s01e09-t0510s.jpg`: mão segurando o tacape, bracelete, quase em primeira pessoa.
 - `bobby-club-raised-s01e01-t1030s.jpg`: tacape erguido, proporção da arma.
 
+## Recursos gerados no Meshy (ticket 01)
+
+Conta Meshy Premium do produtor; a chave fica na configuração global do Claude Code, fora do repositório. Saldo antes: 3126 créditos. Depois: 3021.
+
+| Etapa | Ferramenta | Créditos | Resultado |
+| --- | --- | --- | --- |
+| Variação A | `multi-image-to-3d`, Meshy 6, corpo + cabeça | 30 | Descartada: fundiu as duas referências num amontoado |
+| Variação B | `image-to-3d`, Meshy 7, corpo de lado | 30 | **Escolhida** — 1,95 M tris, corpo esverdeado |
+| Variação C | `image-to-3d`, Meshy 5 | 15 | Descartada: pescoço longo, anatomia fora do modelo |
+| Variação D | `image-to-3d`, smart-topology `meshy-t2` | 15 | Descartada como base: cores certas, mas proporção de pônei adulto |
+| Remesh de B | `remesh` 30k tris, altura 0,95 m, pivô no chão | 5 | Dentro do limite de 300k do rigging e do orçamento do navegador |
+| Retextura de B | `retexture`, Meshy 6, sem iluminação assada | 10 | Pelagem branca, crina e cauda laranja, chifre dourado |
+| Rigging | `rig` | 0 (erro 422) | **Falhou**: "Pose estimation failed" — o Meshy só estima pose de bípede |
+| **Total** | | **105** | |
+
+**Rigging e animação não existem no Meshy para quadrúpede.** O catálogo público de animações (`GET https://api.meshy.ai/web/public/animations/resources`, 680 ações) é inteiramente bípede (`biped`, `style_01/02/03`). Parada, andar e alerta da Uni são feitos por código no Babylon a partir do estado da simulação.
+
+## Recurso no jogo
+
+| Identificador | Origem | Licença/permissão | Formato | Tamanho | Situação |
+| --- | --- | --- | --- | --- | --- |
+| `uni` | Gerado no Meshy a partir de `uni-fullbody-walk-side-s01e01-t0250s.jpg` (quadro do desenho, referência interna) | Conta Meshy Premium do produtor; saída própria. A referência é material protegido de terceiros, usada só como entrada de estilo | `public/models/uni/uni.glb` + `uni-base-color.jpg` | 1,24 MB + 277 KB | No jogo desde 12/09/2026; aparência aprovada por escrito pelo produtor em 12/09/2026 |
+
 ## Pendente
 
-- Aprovação por escrito do produtor destes quadros como referência oficial (critério do ticket 01).
 - Pasta local: `docs/references/{{video,frames,sheets,selected}}` (~800 MB). Apagar `video/` e `frames/` após a aprovação, se quiser liberar espaço; `selected/` basta.
