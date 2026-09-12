@@ -80,7 +80,7 @@ Conta Meshy Premium do produtor; a chave fica na configuração global do Claude
 
 ## Recursos gerados no Meshy (ticket 07 — Cenotáfio)
 
-Saldo antes: 3021. Depois: 2943.
+Saldo antes: 3021. Depois: 2907.
 
 | Etapa | Ferramenta | Créditos | Resultado |
 | --- | --- | --- | --- |
@@ -89,7 +89,11 @@ Saldo antes: 3021. Depois: 2943.
 | Coluna C | `image-to-3d`, smart-topology, recorte do capitel jônico | 15 | Descartada: forma boa, cor roxa herdada da luz do quadro |
 | Imagem de referência | `text-to-image`, nano-banana, 9:16 | 3 | Coluna alta e esbelta isolada em fundo branco, com base e capitel só nas pontas |
 | **Coluna D** | `image-to-3d`, smart-topology, a partir da imagem gerada | 15 | **No jogo**: 4232 tris, proporção 3,53:1, tambores com juntas |
-| **Total** | | **78** | |
+| Imagem dos escombros intactos | `text-to-image`, nano-banana | 3 | Pilha de lajes empilhadas, isolada em fundo branco |
+| Escombros intactos | `image-to-3d`, smart-topology | 15 | **No jogo**: 4310 tris, relevo raso (profundidade 0,14) |
+| Imagem dos escombros quebrados | `text-to-image`, nano-banana | 3 | Monte baixo de cacos, isolado |
+| Escombros quebrados | `image-to-3d`, smart-topology | 15 | **No jogo**: 3564 tris |
+| **Total** | | **114** | |
 
 A lição que se repetiu: o caminho caro (Meshy 7 a partir de quadro do desenho) erra a leitura de forma; o `smart-topology` a partir de uma **imagem limpa e isolada** acerta, sai leve e custa metade. Gerar a imagem de referência antes (3 créditos) é o que dá controle de proporção.
 
@@ -97,6 +101,8 @@ A lição que se repetiu: o caminho caro (Meshy 7 a partir de quadro do desenho)
 
 | Identificador | Origem | Licença/permissão | Formato | Tamanho | Situação |
 | --- | --- | --- | --- | --- | --- |
+| `cenotaph-rubble-intact` | Gerado no Meshy a partir de imagem própria | Conta Meshy Premium do produtor; saída própria | `public/models/cenotaph/rubble-intact.glb` + textura | 199 KB + 262 KB | No jogo desde 12/09/2026 |
+| `cenotaph-rubble-broken` | Gerado no Meshy a partir de imagem própria | Conta Meshy Premium do produtor; saída própria | `public/models/cenotaph/rubble-broken.glb` + textura | 182 KB + 287 KB | No jogo desde 12/09/2026 |
 | `cenotaph-column` | Gerado no Meshy a partir de imagem própria (`text-to-image`), guiada pelos quadros `stone-hall-door-columns` e `stone-column-light` | Conta Meshy Premium do produtor; saída própria | `public/models/cenotaph/column.glb` + `column-base-color.jpg` | 184 KB + 51 KB | No jogo desde 12/09/2026; aprovação pendente |
 | `uni` | Gerado no Meshy a partir de `uni-fullbody-walk-side-s01e01-t0250s.jpg` (quadro do desenho, referência interna) | Conta Meshy Premium do produtor; saída própria. A referência é material protegido de terceiros, usada só como entrada de estilo | `public/models/uni/uni.glb` + `uni-base-color.jpg` | 1,24 MB + 277 KB | No jogo desde 12/09/2026; aparência aprovada por escrito pelo produtor em 12/09/2026 |
 

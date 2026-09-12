@@ -35,6 +35,10 @@ const COLUMN_MODEL_URL = "models/cenotaph/column.glb";
 const COLUMN_TEXTURE_URL = "models/cenotaph/column-base-color.jpg";
 /** The volume the level already reserves for a column, so the colliders stay where they are. */
 const COLUMN_SIZE = { x: 0.8, y: 4, z: 0.8 };
+const RUBBLE_INTACT_URL = "models/cenotaph/rubble-intact.glb";
+const RUBBLE_INTACT_TEXTURE = "models/cenotaph/rubble-intact-base-color.jpg";
+const RUBBLE_BROKEN_URL = "models/cenotaph/rubble-broken.glb";
+const RUBBLE_BROKEN_TEXTURE = "models/cenotaph/rubble-broken-base-color.jpg";
 import { HandsView } from "./hands-view";
 
 export interface QualitySettings {
@@ -149,8 +153,8 @@ export class SceneView {
     }
 
     // obstacle: intact pile vs broken rubble
-    this.obstacleIntact = this.buildIntactObstacle(level.obstacle.collider, rubbleMat);
-    this.obstacleBroken = this.buildBrokenObstacle(level.obstacle.collider, rubbleMat);
+    this.obstacleIntact = new TransformNode("obstacleIntact", scene);
+    this.obstacleBroken = new TransformNode("obstacleBroken", scene);
     this.obstacleBroken.setEnabled(false);
 
     // exit: a warm glow beyond the doorway
@@ -172,7 +176,7 @@ export class SceneView {
 
     this.uni = new UniView(scene, this.shadow);
     this.hands = new HandsView(scene, this.camera);
-    this.ready = Promise.all([this.uni.loaded, this.loadColumns()]).then(() => undefined);
+    this.ready = Promise.all([this.uni.loaded, this.loadColumns(), this.loadObstacle()]).then(() => undefined);
 
     // WebGPU allows 12 uniform buffers per shader stage. With Uni's model in the scene the room cannot
     // afford a light per torch, so only the nearest three torches cast light; the flames still glow.
@@ -286,6 +290,53 @@ export class SceneView {
    * Same recipe as Uni: the mesh is loaded bare and painted here, or the glTF material carries every
    * scene light into the vertex stage and WebGPU rejects the frame.
    */
+  /**
+   * The blocked passage, from the same kit. The pieces are shallow reliefs, because the reference image
+   * is a straight-on view: the face is stretched to the doorway the level reserves and the depth is left
+   * alone, or the blocks smear into long prisms. The collider does not move either way.
+   */
+  private async loadObstacle(): Promise<void> {
+    const b = this.level.obstacle.collider;
+    const cx = (b.minX + b.maxX) / 2;
+    const cz = (b.minZ + b.maxZ) / 2;
+    const doorway = { width: b.maxZ - b.minZ, height: b.maxY - b.minY };
+
+    const place = async (url: string, texture: string, root: TransformNode, lyingDown: boolean): Promise<void> => {
+      const container = await loadAssetContainerAsync(url, this.scene, { pluginOptions: { gltf: { skipMaterials: true } } });
+      if (this.scene.isDisposed) {
+        container.dispose();
+        return;
+      }
+      container.addAllToScene();
+      const mesh = container.meshes.find((m) => m.getTotalVertices() > 0);
+      if (!mesh) return;
+
+      const painted = new PBRMaterial(`${root.name}Painted`, this.scene);
+      painted.albedoTexture = new Texture(texture, this.scene, { invertY: false });
+      painted.metallic = 0;
+      painted.roughness = 0.95;
+      painted.maxSimultaneousLights = 2;
+      mesh.material = painted;
+      mesh.receiveShadows = false;
+
+      const size = mesh.getBoundingInfo().boundingBox.extendSize.scale(2);
+      const across = doorway.width / size.x;
+      mesh.scaling = lyingDown
+        ? new Vector3(across, across, across)
+        : new Vector3(across, doorway.height / size.y, across);
+      mesh.rotationQuaternion = null; // glTF nodes carry a quaternion, which would ignore the rotation below
+      mesh.rotation.y = Math.PI / 2; // the carved face turns to meet Bobby
+      mesh.position = new Vector3(cx, (size.y * (lyingDown ? across : doorway.height / size.y)) / 2, cz);
+      mesh.parent = root;
+      this.shadow.addShadowCaster(mesh as Mesh);
+    };
+
+    await Promise.all([
+      place(RUBBLE_INTACT_URL, RUBBLE_INTACT_TEXTURE, this.obstacleIntact, false),
+      place(RUBBLE_BROKEN_URL, RUBBLE_BROKEN_TEXTURE, this.obstacleBroken, true),
+    ]);
+  }
+
   private async loadColumns(): Promise<void> {
     if (this.level.columns.length === 0) return;
     const container = await loadAssetContainerAsync(COLUMN_MODEL_URL, this.scene, { pluginOptions: { gltf: { skipMaterials: true } } });
@@ -314,48 +365,6 @@ export class SceneView {
       piece.position = new Vector3(x, COLUMN_SIZE.y / 2, z);
       this.shadow.addShadowCaster(piece as Mesh);
     });
-  }
-
-  private buildIntactObstacle(b: Box, mat: PBRMaterial): TransformNode {
-    const root = new TransformNode("obstacleIntact", this.scene);
-    const cx = (b.minX + b.maxX) / 2;
-    const cz = (b.minZ + b.maxZ) / 2;
-    const pieces: [number, number, number, number, number, number, number][] = [
-      // dx, dy, dz, w, h, d, rotY
-      [0, 0.8, 0, 1.4, 1.6, 2.9, 0],
-      [-0.2, 2.0, -0.6, 1.2, 1.0, 1.3, 0.3],
-      [0.1, 2.0, 0.7, 1.1, 1.0, 1.2, -0.25],
-      [0, 2.75, 0, 0.9, 0.7, 1.4, 0.15],
-      [-0.55, 0.35, 1.2, 0.7, 0.7, 0.7, 0.5],
-    ];
-    pieces.forEach(([dx, dy, dz, w, h, d, ry], i) => {
-      const m = MeshBuilder.CreateBox(`rockI${i}`, { width: w, height: h, depth: d }, this.scene);
-      m.position = new Vector3(cx + dx, dy, cz + dz);
-      m.rotation.y = ry;
-      m.material = mat;
-      m.parent = root;
-      this.shadow.addShadowCaster(m);
-    });
-    return root;
-  }
-
-  private buildBrokenObstacle(b: Box, mat: PBRMaterial): TransformNode {
-    const root = new TransformNode("obstacleBroken", this.scene);
-    const cx = (b.minX + b.maxX) / 2;
-    const cz = (b.minZ + b.maxZ) / 2;
-    const pieces: [number, number, number, number][] = [
-      [-0.9, 1.25, 0.45, 0.8], [1.1, -1.15, 0.5, 0.4], [0.3, 1.35, 0.35, 0.2], [-1.2, -0.9, 0.3, 1.1],
-      [1.3, 1.0, 0.4, 0.6], [0.0, -1.3, 0.25, 0.9], [-0.4, 0.2, 0.28, 0.1], [0.9, 0.3, 0.22, 0.7],
-    ];
-    pieces.forEach(([dx, dz, size, ry], i) => {
-      const m = MeshBuilder.CreateBox(`rockB${i}`, { width: size, height: size * 0.7, depth: size * 0.9 }, this.scene);
-      m.position = new Vector3(cx + dx, size * 0.3, cz + dz);
-      m.rotation.set(ry * 0.3, ry, ry * 0.2);
-      m.material = mat;
-      m.parent = root;
-      this.shadow.addShadowCaster(m);
-    });
-    return root;
   }
 
   private buildDust(b: Box): ParticleSystem {
