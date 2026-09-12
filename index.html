@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Caverna do Dragão — Episódio Final</title>
+    <link rel="stylesheet" href="./src/ui/overlay.css" />
+  </head>
+  <body data-state="loading">
+    <canvas id="game" tabindex="0"></canvas>
+
+    <div id="loading" class="screen">
+      <div class="panel">
+        <h1>Caverna do Dragão</h1>
+        <p class="subtitle">Episódio Final</p>
+        <p id="loading-text">Carregando o Cenotáfio…</p>
+        <div class="bar"><div id="loading-bar"></div></div>
+      </div>
+    </div>
+
+    <div id="start" class="screen" hidden>
+      <div class="panel">
+        <h1>Caverna do Dragão</h1>
+        <p class="subtitle">Episódio Final — Entrada do Cenotáfio</p>
+        <table class="controls">
+          <tr><td><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></td><td>Caminhar</td></tr>
+          <tr><td>Mouse</td><td>Olhar</td></tr>
+          <tr><td>Clique</td><td>Golpe simples</td></tr>
+          <tr><td>Segurar e soltar</td><td>Golpe pesado do tacape</td></tr>
+          <tr><td><kbd>E</kbd></td><td>Interagir</td></tr>
+          <tr><td><kbd>Esc</kbd></td><td>Pausar</td></tr>
+        </table>
+        <button id="play" class="primary">Jogar</button>
+        <p class="hint">Uni está com você. Encontre a saída da tumba.</p>
+      </div>
+    </div>
+
+    <div id="hud" hidden>
+      <div id="objective">Encontre a saída da tumba</div>
+      <div id="crosshair"></div>
+      <div id="charge"><div id="charge-fill"></div><span id="charge-label">Segure para carregar</span></div>
+      <div id="interact-hint" hidden><kbd>E</kbd> Sair da tumba</div>
+      <div id="lock-hint" hidden>Clique na tela para capturar o mouse</div>
+      <div id="alert-banner" hidden>Uni encontrou uma passagem bloqueada!</div>
+    </div>
+
+    <div id="pause" class="screen" hidden>
+      <div class="panel">
+        <h2>Pausado</h2>
+        <label>Sensibilidade do mouse <input id="sensitivity" type="range" min="0.3" max="3" step="0.1" value="1" /></label>
+        <label><input id="camera-shake" type="checkbox" checked /> Balanço de câmera</label>
+        <button id="resume" class="primary">Continuar</button>
+        <button id="restart-from-pause">Reiniciar</button>
+      </div>
+    </div>
+
+    <div id="complete" class="screen" hidden>
+      <div class="panel">
+        <h2>Vocês saíram da tumba</h2>
+        <p>Bobby e Uni seguem para o interior do Cenotáfio.</p>
+        <button id="restart" class="primary">Reiniciar</button>
+      </div>
+    </div>
+
+    <div id="error" class="screen" hidden>
+      <div class="panel">
+        <h2>Não foi possível iniciar</h2>
+        <p id="error-text"></p>
+      </div>
+    </div>
+
+    <div id="debug" hidden>
+      <div class="row"><strong>Depuração</strong> <span id="debug-backend"></span></div>
+      <div class="row">DPR
+        <select id="debug-dpr"><option value="2">2</option><option value="1.5">1.5</option><option value="1">1</option></select>
+      </div>
+      <div class="row"><label><input id="debug-taa" type="checkbox" checked /> TAA</label></div>
+      <div class="row"><label><input id="debug-shadows" type="checkbox" checked /> Sombras altas</label></div>
+      <pre id="debug-stats"></pre>
+    </div>
+
+    <script type="module" src="./src/main.ts"></script>
+  </body>
+</html>
