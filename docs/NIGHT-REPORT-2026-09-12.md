@@ -59,6 +59,15 @@ Achados altos e médios, todos com teste RED antes da correção quando cabia:
 
 Não corrigido, de propósito: o ticket 07 continua **parcial** (o revisor confirmou que não há GLB do Blender nem registro de recursos); a pasta `docs/measurements/` continua versionável até você decidir (pergunta 6). As medições anteriores foram feitas com a janela de p95 antiga (4 s); a tabela precisa ser refeita com `pnpm measure` para valer como evidência do ticket 07.
 
+## Adendo — 12/09/2026, tarde: arte da Uni (tickets 01 e 08)
+
+Branch `claude/ticket-01-uni-3d-art`, tirada de `feat/mvp-cenotafio`.
+
+- **Modelo pronto e no jogo.** Quatro variações no Meshy a partir de `uni-fullbody-walk-side-s01e01-t0250s.jpg`; a do Meshy 7 tem a melhor proporção de filhote. Remesh para 30k triângulos e retextura para tirar o verde que veio do fundo do quadro. Asset final 1,5 MB. Créditos por etapa em [REFERENCES.md](REFERENCES.md); 105 de 3126.
+- **Rigging esquelético não existe no Meshy para quadrúpede.** O `rig` devolve 422 "Pose estimation failed" e as 680 animações do catálogo público são todas de bípede. Parada, andar e alerta saem de `src/render/uni-pose.ts` como movimento de corpo e brilho do chifre; **as patas não se mexem**. É a pendência real dos tickets 01 e 08.
+- **A sala perdeu quatro luzes.** O WebGPU permite 12 uniform buffers por estágio de shader e o corredor tinha uma luz por tocha (10 luzes no total). Com a malha da Uni na cena o limite estourava, todos os pipelines eram recusados e o quadro inteiro ficava preto. Agora só as três tochas mais próximas iluminam; as sete chamas continuam visíveis. Reversível em uma linha em `scene-view.ts`, mas aí a Uni não entra.
+- **Medições com a Uni na cena** (Chrome 153, WebGPU, M5): 120 fps, p95 9,7 ms, 0 quadros acima de 33 ms em 3024×1890; 2,1 MB transferidos a frio contra 0,6 MB antes. `pnpm verify` verde: lint, types, 41 testes Vitest, build e 7 cenários Playwright.
+
 ## Perguntas para você (todas juntas, como pediu)
 
 1. ~~Git~~ Resolvido em 12/09/2026: branch `feat/mvp-cenotafio` com commits por ticket. Casa única do projeto: `~/Projects/Github/dungeons-and-dragons-final-episode` (remote `origin` = `renatobardi/dungeons-and-dragons-final-episode`; tracker de issues e labels em `AGENTS.md` e `docs/agents/`). A pasta antiga em Documents foi movida para lá; o backup do conteúdo anterior da pasta está na Lixeira. O repositório `caverna-do-dragao-episodio-final` no GitHub (com o PR #1) ficou obsoleto e pode ser apagado por você.
