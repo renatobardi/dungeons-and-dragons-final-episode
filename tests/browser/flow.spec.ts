@@ -201,6 +201,27 @@ test.describe("cenotaph entrance flow", () => {
     expect(errors).toEqual([]);
   });
 
+  test("P10: Uni's step follows the ground she covers, and holds when she stops", async ({ page }) => {
+    await expect(page.locator("body")).toHaveAttribute("data-state", "ready", { timeout: 30_000 });
+    await page.click("#play");
+    await page.keyboard.down("KeyW");
+    await page.waitForTimeout(900);
+    const first = await page.evaluate(() => window.__game!.uniGait());
+    await page.waitForTimeout(600);
+    const second = await page.evaluate(() => window.__game!.uniGait());
+    expect(first.clip).toBe("walk");
+    expect(second.frame).not.toBe(first.frame);
+
+    await page.keyboard.up("KeyW");
+    await page.waitForTimeout(1200);
+    const stopped = await page.evaluate(() => window.__game!.uniGait());
+    await page.waitForTimeout(600);
+    const still = await page.evaluate(() => window.__game!.uniGait());
+    expect(stopped.clip).toBe("idle");
+    expect(still.frame).toBe(stopped.frame);
+    expect(errors).toEqual([]);
+  });
+
   test("Esc while holding the club cancels the charge; releasing after resume does not strike", async ({ page }) => {
     await expect(page.locator("body")).toHaveAttribute("data-state", "ready", { timeout: 30_000 });
     await page.click("#play");
