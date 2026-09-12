@@ -105,19 +105,21 @@ A lição que se repetiu: o caminho caro (Meshy 7 a partir de quadro do desenho)
 
 | Etapa | Ferramenta | Créditos | Resultado |
 | --- | --- | --- | --- |
-| Imagem do tacape | `text-to-image`, nano-banana | 3 | Tacape isolado, cabo com couro e cabeça com nós |
-| Tacape | `image-to-3d`, smart-topology | 15 | **No jogo**: 3474 tris |
+| Imagem do tacape | `text-to-image`, nano-banana | 3 | Descartada: saiu maça com nós e couro, não a clava do Bobby |
+| Tacape (1ª tentativa) | `image-to-3d`, smart-topology | 15 | Descartado pelo produtor: forma errada |
+| Imagem da clava | `text-to-image`, nano-banana | 3 | Clava lisa e cônica, como na figura de ação e no desenho |
+| Clava | `image-to-3d`, smart-topology | 15 | **No jogo**: 4194 tris |
 | Imagem da mão | `text-to-image`, nano-banana | 3 | Punho fechado com punho de pele, isolado |
 | Mão | `image-to-3d`, smart-topology | 15 | **No jogo**: 4367 tris, espelhada para a mão esquerda |
-| **Total** | | **36** | |
+| **Total** | | **54** | |
 
-Saldo depois: 2835.
+Saldo depois: 2817. O tacape precisou de duas rodadas: a primeira descrição produziu uma maça com nós, e a referência correta (figura de ação e arte do desenho) é uma clava lisa que afina até o punho.
 
 ## Recurso no jogo
 
 | Identificador | Origem | Licença/permissão | Formato | Tamanho | Situação |
 | --- | --- | --- | --- | --- | --- |
-| `bobby-club` | Gerado no Meshy a partir de imagem própria | Conta Meshy Premium do produtor; saída própria | `public/models/bobby/club.glb` + textura | 147 KB + 202 KB | No jogo desde 12/09/2026 |
+| `bobby-club` | Gerado no Meshy a partir de imagem própria, guiada pela figura de ação oficial | Conta Meshy Premium do produtor; saída própria | `public/models/bobby/club.glb` + textura | 164 KB + textura | No jogo desde 12/09/2026 |
 | `bobby-hand` | Gerado no Meshy a partir de imagem própria | Conta Meshy Premium do produtor; saída própria | `public/models/bobby/hand.glb` + textura | 202 KB + 211 KB | No jogo desde 12/09/2026 |
 | `cenotaph-arch` | Gerado no Meshy a partir de imagem própria | Conta Meshy Premium do produtor; saída própria | `public/models/cenotaph/arch.glb` + textura | 193 KB + 105 KB | No jogo desde 12/09/2026 |
 | `cenotaph-statue` | Gerado no Meshy a partir de imagem própria | Conta Meshy Premium do produtor; saída própria | `public/models/cenotaph/statue.glb` + textura | 175 KB + 75 KB | No jogo desde 12/09/2026 |
