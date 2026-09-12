@@ -101,10 +101,24 @@ Saldo antes: 3021. Depois: 2871.
 
 A lição que se repetiu: o caminho caro (Meshy 7 a partir de quadro do desenho) erra a leitura de forma; o `smart-topology` a partir de uma **imagem limpa e isolada** acerta, sai leve e custa metade. Gerar a imagem de referência antes (3 créditos) é o que dá controle de proporção.
 
+## Recursos gerados no Meshy (ticket 09 — mãos e tacape)
+
+| Etapa | Ferramenta | Créditos | Resultado |
+| --- | --- | --- | --- |
+| Imagem do tacape | `text-to-image`, nano-banana | 3 | Tacape isolado, cabo com couro e cabeça com nós |
+| Tacape | `image-to-3d`, smart-topology | 15 | **No jogo**: 3474 tris |
+| Imagem da mão | `text-to-image`, nano-banana | 3 | Punho fechado com punho de pele, isolado |
+| Mão | `image-to-3d`, smart-topology | 15 | **No jogo**: 4367 tris, espelhada para a mão esquerda |
+| **Total** | | **36** | |
+
+Saldo depois: 2835.
+
 ## Recurso no jogo
 
 | Identificador | Origem | Licença/permissão | Formato | Tamanho | Situação |
 | --- | --- | --- | --- | --- | --- |
+| `bobby-club` | Gerado no Meshy a partir de imagem própria | Conta Meshy Premium do produtor; saída própria | `public/models/bobby/club.glb` + textura | 147 KB + 202 KB | No jogo desde 12/09/2026 |
+| `bobby-hand` | Gerado no Meshy a partir de imagem própria | Conta Meshy Premium do produtor; saída própria | `public/models/bobby/hand.glb` + textura | 202 KB + 211 KB | No jogo desde 12/09/2026 |
 | `cenotaph-arch` | Gerado no Meshy a partir de imagem própria | Conta Meshy Premium do produtor; saída própria | `public/models/cenotaph/arch.glb` + textura | 193 KB + 105 KB | No jogo desde 12/09/2026 |
 | `cenotaph-statue` | Gerado no Meshy a partir de imagem própria | Conta Meshy Premium do produtor; saída própria | `public/models/cenotaph/statue.glb` + textura | 175 KB + 75 KB | No jogo desde 12/09/2026 |
 | `cenotaph-rubble-intact` | Gerado no Meshy a partir de imagem própria | Conta Meshy Premium do produtor; saída própria | `public/models/cenotaph/rubble-intact.glb` + textura | 199 KB + 262 KB | No jogo desde 12/09/2026 |

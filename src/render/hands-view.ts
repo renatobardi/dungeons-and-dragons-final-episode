@@ -1,13 +1,54 @@
 import type { Scene } from "@babylonjs/core/scene";
-import { Vector3 } from "@babylonjs/core/Maths/math.vector";
-import { Color3 } from "@babylonjs/core/Maths/math.color";
-import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder";
+import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector";
+import { Texture } from "@babylonjs/core/Materials/Textures/texture";
+import { loadAssetContainerAsync } from "@babylonjs/core/Loading/sceneLoader";
+import type { Mesh } from "@babylonjs/core/Meshes/mesh";
 import { TransformNode } from "@babylonjs/core/Meshes/transformNode";
 import { PBRMaterial } from "@babylonjs/core/Materials/PBR/pbrMaterial";
 import type { UniversalCamera } from "@babylonjs/core/Cameras/universalCamera";
 import type { Snapshot } from "../sim/simulation";
 
-/** Provisional first-person hands and club, parented to the camera. Final art (ticket 09) replaces the mesh, not the interface. */
+/** Where the kit pieces live and how big they are in the rig. */
+const CLUB_URL = "models/bobby/club.glb";
+const CLUB_TEXTURE = "models/bobby/club-base-color.jpg";
+const HAND_URL = "models/bobby/hand.glb";
+const HAND_TEXTURE = "models/bobby/hand-base-color.jpg";
+/** Distance from the gripping hand to the club head in the provisional rig. */
+const CLUB_LENGTH = 0.46;
+const HAND_SIZE = 0.13;
+/** Where the closed right hand sits in the rig, and so where the club's grip has to land. */
+const GRIP = { x: 0, y: -0.05, z: -0.02 };
+/** Direction the club points out of the fist: up and forward, as the provisional handle did. */
+const HANDLE_LINE = new Vector3(0, 0.35, 0.3);
+
+/**
+ * The two ends of a long thin mesh and which of them is the thin one. Meshy returns the club lying on
+ * whatever diagonal the reference image had, so the rig cannot assume an orientation: it measures the
+ * longest span across the vertices and counts the mass around each end to tell grip from head.
+ */
+function ends(mesh: Mesh): { grip: Vector3; head: Vector3 } {
+  const p = mesh.getVerticesData("position");
+  if (!p) return { grip: Vector3.Zero(), head: Vector3.Zero() };
+  const at = (i: number): Vector3 => new Vector3(p[i * 3]!, p[i * 3 + 1]!, p[i * 3 + 2]!);
+  const count = p.length / 3;
+
+  let a = 0;
+  for (let i = 1; i < count; i++) if (at(i).lengthSquared() > at(a).lengthSquared()) a = i;
+  let b = 0;
+  for (let i = 1; i < count; i++) if (Vector3.DistanceSquared(at(i), at(a)) > Vector3.DistanceSquared(at(b), at(a))) b = i;
+
+  const span = Vector3.Distance(at(a), at(b));
+  const near = (end: Vector3): number => {
+    let n = 0;
+    for (let i = 0; i < count; i++) if (Vector3.Distance(at(i), end) < span * 0.25) n++;
+    return n;
+  };
+  const ea = at(a);
+  const eb = at(b);
+  return near(ea) < near(eb) ? { grip: ea, head: eb } : { grip: eb, head: ea };
+}
+
+/** First-person hands and club, parented to the camera. */
 export class HandsView {
   private readonly rig: TransformNode;
   private swingTime = -1;
@@ -19,49 +60,71 @@ export class HandsView {
     this.rig.parent = camera;
     this.rig.position = new Vector3(0.32, -0.3, 0.75);
 
-    const skin = new PBRMaterial("skin", scene);
-    skin.albedoColor = new Color3(0.93, 0.72, 0.58);
-    skin.roughness = 0.8;
-    const wood = new PBRMaterial("wood", scene);
-    wood.albedoColor = new Color3(0.42, 0.26, 0.14);
-    wood.roughness = 0.85;
-    const fur = new PBRMaterial("fur", scene);
-    fur.albedoColor = new Color3(0.55, 0.32, 0.16);
-    fur.roughness = 1;
+    void this.loadKit(scene);
+  }
 
-    // handle runs from the right hand (0,-0.05,-0.02) to the club head (0,0.3,0.28)
-    const handleLen = Math.hypot(0.35, 0.3);
-    const handle = MeshBuilder.CreateCylinder("clubHandle", { height: handleLen, diameterTop: 0.05, diameterBottom: 0.04, tessellation: 10 }, scene);
-    handle.rotation.x = Math.atan2(0.3, 0.35);
-    handle.position = new Vector3(0, 0.125, 0.13);
-    handle.material = wood;
-    handle.parent = this.rig;
-    const head = MeshBuilder.CreateSphere("clubHead", { diameterX: 0.14, diameterY: 0.18, diameterZ: 0.14, segments: 10 }, scene);
-    head.position = new Vector3(0, 0.3, 0.28);
-    head.material = wood;
-    head.parent = this.rig;
-    for (let i = 0; i < 6; i++) {
-      const knob = MeshBuilder.CreateSphere(`knob${i}`, { diameter: 0.045, segments: 6 }, scene);
-      const a = (i / 6) * Math.PI * 2;
-      knob.position = new Vector3(Math.cos(a) * 0.07, 0.3 + Math.sin(a * 2) * 0.05, 0.28 + Math.sin(a) * 0.07);
-      knob.material = wood;
-      knob.parent = this.rig;
+  /**
+   * Bobby's club and hands come from the kit (ticket 09). The rig keeps the anchor points the
+   * provisional primitives used, so the swing and the charge in update() are untouched.
+   */
+  private async loadKit(scene: Scene): Promise<void> {
+    const paint = (name: string, texture: string): PBRMaterial => {
+      const mat = new PBRMaterial(name, scene);
+      mat.albedoTexture = new Texture(texture, scene, { invertY: false });
+      mat.metallic = 0;
+      mat.roughness = 0.85;
+      mat.maxSimultaneousLights = 2;
+      return mat;
+    };
+    const take = async (url: string): Promise<Mesh | null> => {
+      const container = await loadAssetContainerAsync(url, scene, { pluginOptions: { gltf: { skipMaterials: true } } });
+      if (scene.isDisposed) {
+        container.dispose();
+        return null;
+      }
+      container.addAllToScene();
+      const mesh = container.meshes.find((m) => m.getTotalVertices() > 0) as Mesh | undefined;
+      if (!mesh) return null;
+      mesh.parent = null; // the glTF __root__ is scaled -1 on X and would mirror every placement
+      mesh.rotationQuaternion = null;
+      return mesh;
+    };
+
+    const [club, hand] = await Promise.all([take(CLUB_URL), take(HAND_URL)]);
+
+    if (club) {
+      club.material = paint("clubPainted", CLUB_TEXTURE);
+      const size = club.getBoundingInfo().boundingBox.extendSize.scale(2);
+      // the model already lies along the up-and-forward diagonal the rig wants, so only its length matters
+      const along = Math.hypot(size.y, size.z);
+      const fit = CLUB_LENGTH / along;
+      club.scaling.setAll(fit);
+      // the grip is the low corner of the model; it is what has to sit in the closed right hand
+      // Point the club along the rig's handle line, then drop the grip into the closed fist.
+      const { grip, head } = ends(club);
+      club.rotationQuaternion = Quaternion.FromUnitVectorsToRef(
+        head.subtract(grip).normalize(),
+        HANDLE_LINE.normalizeToNew(),
+        new Quaternion(),
+      );
+      const heldAt = grip.scale(fit).applyRotationQuaternion(club.rotationQuaternion);
+      club.position = new Vector3(GRIP.x - heldAt.x, GRIP.y - heldAt.y, GRIP.z - heldAt.z);
+      club.parent = this.rig;
     }
-    const hand = MeshBuilder.CreateSphere("handR", { diameterX: 0.11, diameterY: 0.09, diameterZ: 0.13, segments: 8 }, scene);
-    hand.position = new Vector3(0, -0.05, -0.02);
-    hand.material = skin;
-    hand.parent = this.rig;
-    const cuff = MeshBuilder.CreateCylinder("cuffR", { height: 0.12, diameter: 0.12, tessellation: 8 }, scene);
-    cuff.position = new Vector3(0, -0.15, -0.08);
-    cuff.rotation.x = 0.6;
-    cuff.material = fur;
-    cuff.parent = this.rig;
-    const handL = hand.clone("handL");
-    handL.position = new Vector3(-0.55, -0.12, 0.05);
-    handL.parent = this.rig;
-    const cuffL = cuff.clone("cuffL");
-    cuffL.position = new Vector3(-0.56, -0.22, -0.02);
-    cuffL.parent = this.rig;
+
+    if (hand) {
+      hand.material = paint("handPainted", HAND_TEXTURE);
+      const size = hand.getBoundingInfo().boundingBox.extendSize.scale(2);
+      const fit = HAND_SIZE / size.y;
+      hand.scaling.setAll(fit);
+      hand.position = new Vector3(0, GRIP.y, GRIP.z);
+      hand.parent = this.rig;
+      const left = hand.createInstance("handL");
+      left.scaling.set(-fit, fit, fit); // the other hand is this one mirrored
+      left.position = new Vector3(-0.55, -0.12, 0.05);
+      left.parent = this.rig;
+    }
+
     // draw on top of the world so a wall or the rubble never hides Bobby's own hands
     for (const m of this.rig.getChildMeshes()) m.renderingGroupId = 1;
   }
