@@ -13,6 +13,7 @@
     "test": "vitest run",
     "test:browser": "playwright test",
     "measure": "node scripts/measure.ts",
+    "rig": "\"${BLENDER:-/Applications/Blender.app/Contents/MacOS/Blender}\" --background --python scripts/rig-uni.py",
     "verify": "pnpm lint && pnpm types && pnpm test && pnpm build && pnpm test:browser"
   },
   "dependencies": {
