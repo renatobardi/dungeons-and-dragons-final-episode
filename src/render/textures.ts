@@ -116,11 +116,3 @@ export const RUBBLE: PaintSpec = {
   cracks: 30,
   seed: 37,
 };
-
-export const UNI_HIDE: PaintSpec = {
-  base: [244, 240, 232],
-  dabs: [[255, 255, 250], [226, 220, 210], [238, 232, 228]],
-  dabCount: 500,
-  dabSize: [16, 50],
-  seed: 5,
-};

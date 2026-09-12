@@ -25,7 +25,7 @@ import "@babylonjs/core/Rendering/geometryBufferRendererSceneComponent";
 import type { LevelDefinition } from "../sim/level";
 import type { Box } from "../sim/geometry";
 import type { SimEvent, Snapshot } from "../sim/simulation";
-import { paintedTexture, RUBBLE, STONE_FLOOR, STONE_WALL, UNI_HIDE } from "./textures";
+import { paintedTexture, RUBBLE, STONE_FLOOR, STONE_WALL } from "./textures";
 import { UniView } from "./uni-view";
 import { HandsView } from "./hands-view";
 
@@ -39,6 +39,8 @@ export interface QualitySettings {
 export class SceneView {
   readonly scene: Scene;
   readonly camera: UniversalCamera;
+  /** Resolves when every asset the scene loads is in place. */
+  readonly ready: Promise<void>;
   private readonly uni: UniView;
   private readonly hands: HandsView;
   private readonly obstacleIntact: TransformNode;
@@ -157,8 +159,13 @@ export class SceneView {
 
     this.dust = this.buildDust(level.obstacle.collider);
 
-    this.uni = new UniView(scene, this.hide(), this.shadow);
+    this.uni = new UniView(scene, this.shadow);
     this.hands = new HandsView(scene, this.camera);
+    this.ready = this.uni.loaded;
+
+    // WebGPU allows 12 uniform buffers per shader stage. With Uni's model in the scene the room cannot
+    // afford a light per torch, so only the nearest three torches cast light; the flames still glow.
+    for (const torch of this.torches.slice(3)) torch.dispose();
 
     this.pipeline = new DefaultRenderingPipeline("post", true, scene, [this.camera]);
     this.pipeline.bloomEnabled = true;
@@ -255,13 +262,6 @@ export class SceneView {
     return mat;
   }
 
-  private hide(): PBRMaterial {
-    const mat = new PBRMaterial("uniHide", this.scene);
-    mat.albedoTexture = paintedTexture(this.scene, "uniHideTex", 512, UNI_HIDE);
-    mat.metallic = 0;
-    mat.roughness = 0.75;
-    return mat;
-  }
 
   private boxMesh(name: string, b: Box): Mesh {
     const m = MeshBuilder.CreateBox(name, { width: b.maxX - b.minX, height: b.maxY - b.minY, depth: b.maxZ - b.minZ }, this.scene);
