@@ -61,7 +61,7 @@ Não corrigido, de propósito: o ticket 07 continua **parcial** (o revisor confi
 
 ## Perguntas para você (todas juntas, como pediu)
 
-1. **Git:** posso criar a branch `feat/mvp-cenotafio` a partir da `main` vazia e commitar em blocos por ticket? A guarda bloqueou o `git switch -c` por árvore suja. Alternativa: você cria a branch e eu commito.
+1. ~~Git~~ Resolvido em 12/09/2026: branch `feat/mvp-cenotafio` com commits por ticket. Casa única do projeto: `~/Projects/Github/dungeons-and-dragons-final-episode` (remote `origin` = `renatobardi/dungeons-and-dragons-final-episode`; tracker de issues e labels em `AGENTS.md` e `docs/agents/`). A pasta antiga em Documents foi movida para lá; o backup do conteúdo anterior da pasta está na Lixeira. O repositório `caverna-do-dragao-episodio-final` no GitHub (com o PR #1) ficou obsoleto e pode ser apagado por você.
 2. ~~Meshy~~ Premium assinado em 12/09/2026; MCP oficial instalado. Blender continua ausente; rigging e animação serão tentados no próprio Meshy.
 3. ~~Referências~~ 28 quadros capturados e aprovados em 12/09/2026 (`docs/REFERENCES.md`).
 4. **Aprovação visual do que existe:** o cenário provisório em código atende como base para a arte final, ou prefere que a produção de arte comece do zero no Blender?
