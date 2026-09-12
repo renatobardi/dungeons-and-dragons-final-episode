@@ -1,0 +1,191 @@
+import { expect, test, type Page } from "@playwright/test";
+
+/** Drives Bobby from the spawn to the blocked doorway using the simulation hooks (no real-time waiting). */
+async function walkToObstacle(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    const g = window.__game!;
+    g.command({ type: "move", forward: 1, strafe: 0 });
+    g.fastForward(4.4);
+    g.command({ type: "look", yaw: Math.PI / 2, pitch: 0 });
+    g.fastForward(1.5);
+    g.command({ type: "look", yaw: -0.15, pitch: 0 });
+    g.fastForward(3);
+    g.command({ type: "look", yaw: 0.15, pitch: 0 });
+    g.fastForward(3);
+    g.command({ type: "move", forward: 0, strafe: 0 });
+    g.command({ type: "look", yaw: Math.PI / 2 - g.snapshot().player.yaw, pitch: 0 });
+  });
+}
+
+/** Full route through the hooks: break the passage and leave. */
+async function completeRun(page: Page): Promise<void> {
+  await walkToObstacle(page);
+  await page.evaluate(() => {
+    const g = window.__game!;
+    g.command({ type: "chargeStart" });
+    g.fastForward(0.7);
+    g.command({ type: "chargeRelease" });
+    g.fastForward(0.1);
+    g.command({ type: "move", forward: 1, strafe: 0 });
+    g.fastForward(2.5);
+    g.command({ type: "move", forward: 0, strafe: 0 });
+    g.command({ type: "interact" });
+    g.fastForward(0.1);
+  });
+}
+
+test.describe("cenotaph entrance flow", () => {
+  const errors: string[] = [];
+
+  test.beforeEach(async ({ page }) => {
+    errors.length = 0;
+    page.on("pageerror", (e) => errors.push(e.message));
+    page.on("console", (m) => m.type() === "error" && errors.push(m.text()));
+    await page.goto("/?debug");
+  });
+
+  test("P01: shows loading, then the start screen; play starts only on click", async ({ page }) => {
+    await expect(page.locator("body")).toHaveAttribute("data-state", /loading|ready/);
+    await expect(page.locator("body")).toHaveAttribute("data-state", "ready", { timeout: 30_000 });
+    await expect(page.locator("#start")).toBeVisible();
+    await expect(page.locator("#start .controls")).toContainText("Caminhar");
+    await expect(page.locator("#hud")).toBeHidden();
+    const backend = await page.evaluate(() => window.__game!.backend());
+    expect(["webgpu", "webgl2"]).toContain(backend);
+
+    await page.click("#play");
+    await expect(page.locator("body")).toHaveAttribute("data-state", "playing");
+    await expect(page.locator("#hud")).toBeVisible();
+    expect(errors).toEqual([]);
+  });
+
+  test("P07: Esc pauses and releases the mouse; losing focus pauses; Bobby does not keep moving", async ({ page }) => {
+    await expect(page.locator("body")).toHaveAttribute("data-state", "ready", { timeout: 30_000 });
+    await page.click("#play");
+    await page.keyboard.down("KeyW");
+    await page.waitForTimeout(300);
+    await page.keyboard.press("Escape");
+    await expect(page.locator("body")).toHaveAttribute("data-state", "paused");
+    await expect(page.locator("#pause")).toBeVisible();
+    const zPaused = await page.evaluate(() => window.__game!.snapshot().player.z);
+    await page.waitForTimeout(400);
+    expect(await page.evaluate(() => window.__game!.snapshot().player.z)).toBe(zPaused);
+    await page.keyboard.up("KeyW");
+
+    await page.click("#resume");
+    await expect(page.locator("body")).toHaveAttribute("data-state", "playing");
+    await page.evaluate(() => window.dispatchEvent(new Event("blur")));
+    await expect(page.locator("body")).toHaveAttribute("data-state", "paused");
+    expect(errors).toEqual([]);
+  });
+
+  test("P08: complete the route and restart three times without duplicates or errors", async ({ page }) => {
+    await expect(page.locator("body")).toHaveAttribute("data-state", "ready", { timeout: 30_000 });
+    for (let i = 0; i < 3; i++) {
+      await page.click("#play");
+      await expect(page.locator("body")).toHaveAttribute("data-state", "playing");
+      await completeRun(page);
+      await expect(page.locator("body")).toHaveAttribute("data-state", "completed");
+      await expect(page.locator("#complete")).toBeVisible();
+      expect(await page.evaluate(() => window.__game!.snapshot().obstacle)).toBe("broken");
+
+      await page.click("#restart");
+      await expect(page.locator("body")).toHaveAttribute("data-state", "ready");
+      const s = await page.evaluate(() => window.__game!.snapshot());
+      expect(s.obstacle).toBe("intact");
+      expect(s.alertFired).toBe(false);
+      expect(s.charge.charging).toBe(false);
+      expect(s.player.x).toBeCloseTo(0);
+      expect(await page.evaluate(() => window.__game!.uniCount())).toBe(1);
+      expect(await page.evaluate(() => window.__game!.sceneCount())).toBe(1);
+    }
+    expect(errors).toEqual([]);
+  });
+
+  test("P02: real keys walk Bobby down the corridor and stop him at the portico wall", async ({ page }) => {
+    await expect(page.locator("body")).toHaveAttribute("data-state", "ready", { timeout: 30_000 });
+    await page.click("#play");
+    await page.keyboard.down("KeyW");
+    await page.waitForTimeout(1000);
+    await page.keyboard.up("KeyW");
+    const z = await page.evaluate(() => window.__game!.snapshot().player.z);
+    expect(z).toBeGreaterThan(2.5);
+    expect(z).toBeLessThan(4.5);
+    await page.keyboard.down("KeyS");
+    await page.waitForTimeout(1200);
+    await page.keyboard.up("KeyS");
+    await page.keyboard.down("KeyD");
+    await page.waitForTimeout(1500);
+    await page.keyboard.up("KeyD");
+    const s = await page.evaluate(() => window.__game!.snapshot().player);
+    expect(s.x).toBeGreaterThan(2);
+    expect(s.x).toBeLessThanOrEqual(3);
+    expect(errors).toEqual([]);
+  });
+
+  test("P03/P04: a real click does not open the passage; holding the button and releasing does", async ({ page }) => {
+    await expect(page.locator("body")).toHaveAttribute("data-state", "ready", { timeout: 30_000 });
+    await page.click("#play");
+    await walkToObstacle(page);
+    const canvas = page.locator("#game");
+    const box = (await canvas.boundingBox())!;
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.mouse.down();
+    await page.mouse.up();
+    await page.waitForTimeout(200);
+    expect(await page.evaluate(() => window.__game!.snapshot().obstacle)).toBe("intact");
+
+    await page.mouse.down();
+    await page.waitForTimeout(400);
+    await expect(page.locator("#charge")).toHaveClass(/visible/);
+    await page.waitForTimeout(500);
+    await expect(page.locator("#charge")).toHaveClass(/ready/);
+    await page.mouse.up();
+    await page.waitForTimeout(200);
+    expect(await page.evaluate(() => window.__game!.snapshot().obstacle)).toBe("broken");
+    await page.keyboard.down("KeyW");
+    await page.waitForTimeout(1500);
+    await page.keyboard.up("KeyW");
+    expect(await page.evaluate(() => window.__game!.snapshot().player.x)).toBeGreaterThan(21.2);
+    expect(errors).toEqual([]);
+  });
+
+  test("P05: Uni reaches the room after the turn and stays close", async ({ page }) => {
+    await expect(page.locator("body")).toHaveAttribute("data-state", "ready", { timeout: 30_000 });
+    await page.click("#play");
+    await page.evaluate(() => {
+      const g = window.__game!;
+      g.command({ type: "move", forward: 1, strafe: 0 });
+      g.fastForward(4.4);
+      g.command({ type: "look", yaw: Math.PI / 2, pitch: 0 });
+      g.fastForward(3);
+      g.command({ type: "move", forward: 0, strafe: 0 });
+      g.fastForward(3);
+    });
+    const s = await page.evaluate(() => window.__game!.snapshot());
+    expect(s.uni.x).toBeGreaterThan(8);
+    expect(Math.hypot(s.uni.x - s.player.x, s.uni.z - s.player.z)).toBeLessThanOrEqual(2.5);
+    expect(errors).toEqual([]);
+  });
+
+  test("Esc while holding the club cancels the charge; releasing after resume does not strike", async ({ page }) => {
+    await expect(page.locator("body")).toHaveAttribute("data-state", "ready", { timeout: 30_000 });
+    await page.click("#play");
+    await walkToObstacle(page);
+    const box = (await page.locator("#game").boundingBox())!;
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.mouse.down();
+    await page.waitForTimeout(300);
+    await page.keyboard.press("Escape");
+    await expect(page.locator("body")).toHaveAttribute("data-state", "paused");
+    expect(await page.evaluate(() => window.__game!.snapshot().charge.charging)).toBe(false);
+    await page.mouse.up();
+    await page.click("#resume");
+    await expect(page.locator("body")).toHaveAttribute("data-state", "playing");
+    await page.waitForTimeout(800);
+    await page.evaluate(() => window.__game!.command({ type: "chargeRelease" }));
+    await page.waitForTimeout(100);
+    expect(await page.evaluate(() => window.__game!.snapshot().obstacle)).toBe("intact");
+    expect(errors).toEqual([]);
+  });
+});

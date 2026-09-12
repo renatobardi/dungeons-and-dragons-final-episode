@@ -1,0 +1,48 @@
+:root {
+  --ink: #f3e9d2;
+  --gold: #e0b34a;
+  --shadow: rgba(8, 6, 12, 0.82);
+  font-family: Georgia, "Times New Roman", serif;
+  color: var(--ink);
+}
+html, body { margin: 0; height: 100%; background: #070509; overflow: hidden; }
+#game { position: fixed; inset: 0; width: 100%; height: 100%; display: block; outline: none; }
+.screen { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: var(--shadow); z-index: 10; }
+.screen[hidden] { display: none; }
+.panel { background: rgba(28, 20, 34, 0.92); border: 2px solid var(--gold); border-radius: 12px; padding: 32px 40px; min-width: 360px; max-width: 520px; text-align: center; box-shadow: 0 0 40px rgba(224, 179, 74, 0.25); }
+h1 { margin: 0; font-size: 2.2rem; letter-spacing: 0.04em; color: var(--gold); }
+h2 { margin: 0 0 16px; color: var(--gold); }
+.subtitle { margin: 4px 0 20px; opacity: 0.85; }
+.controls { margin: 0 auto 20px; border-collapse: collapse; }
+.controls td { padding: 4px 12px; text-align: left; }
+kbd { display: inline-block; min-width: 1.2em; padding: 2px 6px; margin: 0 1px; border: 1px solid var(--gold); border-radius: 4px; font-family: inherit; font-size: 0.9em; }
+button { font: inherit; font-size: 1.05rem; padding: 10px 28px; margin: 6px; border-radius: 8px; border: 2px solid var(--gold); background: transparent; color: var(--ink); cursor: pointer; }
+button.primary { background: var(--gold); color: #1c1422; font-weight: bold; }
+button:hover { filter: brightness(1.1); }
+label { display: block; margin: 10px 0; }
+.hint { opacity: 0.75; font-size: 0.95rem; }
+.bar { height: 8px; background: #2a2230; border-radius: 4px; overflow: hidden; margin-top: 12px; }
+#loading-bar { height: 100%; width: 0; background: var(--gold); transition: width 0.2s; }
+
+#hud { position: fixed; inset: 0; pointer-events: none; z-index: 5; }
+#hud[hidden] { display: none; }
+#objective { position: absolute; top: 20px; left: 50%; transform: translateX(-50%); padding: 6px 18px; background: rgba(8, 6, 12, 0.55); border-radius: 6px; font-size: 1rem; }
+#crosshair { position: absolute; left: 50%; top: 50%; width: 6px; height: 6px; margin: -3px; border-radius: 50%; background: var(--ink); opacity: 0.8; }
+#charge { position: absolute; left: 50%; bottom: 60px; transform: translateX(-50%); width: 220px; height: 14px; background: rgba(8, 6, 12, 0.6); border: 1px solid var(--gold); border-radius: 7px; overflow: visible; opacity: 0; transition: opacity 0.15s; }
+#charge.visible { opacity: 1; }
+#charge-fill { height: 100%; width: 0; background: var(--gold); border-radius: 7px; }
+#charge.ready #charge-fill { background: #fff3c4; box-shadow: 0 0 14px #fff3c4; }
+#charge-label { position: absolute; top: 18px; left: 0; right: 0; text-align: center; font-size: 0.85rem; }
+#charge.ready #charge-label { font-weight: bold; }
+#lock-hint { position: absolute; left: 50%; top: 24px; transform: translateX(-50%); padding: 6px 14px; background: rgba(8, 6, 12, 0.7); border: 1px solid var(--gold); border-radius: 8px; font-size: 0.95rem; }
+#lock-hint[hidden] { display: none; }
+#interact-hint { position: absolute; left: 50%; bottom: 120px; transform: translateX(-50%); padding: 8px 16px; background: rgba(8, 6, 12, 0.7); border: 1px solid var(--gold); border-radius: 8px; font-size: 1.1rem; }
+#interact-hint[hidden] { display: none; }
+#alert-banner { position: absolute; top: 70px; left: 50%; transform: translateX(-50%); padding: 8px 18px; background: rgba(224, 179, 74, 0.9); color: #1c1422; border-radius: 8px; font-weight: bold; animation: pop 0.3s ease-out; }
+#alert-banner[hidden] { display: none; }
+@keyframes pop { from { transform: translateX(-50%) scale(0.6); opacity: 0; } to { transform: translateX(-50%) scale(1); opacity: 1; } }
+
+#debug { position: fixed; top: 12px; right: 12px; z-index: 20; background: rgba(0, 0, 0, 0.75); color: #dfe; font: 12px/1.5 ui-monospace, Menlo, monospace; padding: 10px 12px; border-radius: 6px; min-width: 220px; }
+#debug[hidden] { display: none; }
+#debug .row { margin-bottom: 4px; }
+#debug pre { margin: 6px 0 0; white-space: pre; }
