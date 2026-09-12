@@ -69,6 +69,21 @@ Branch `claude/ticket-01-uni-3d-art`, tirada de `feat/mvp-cenotafio`.
 - **Decisões suas de 12/09/2026:** aparência da Uni **aprovada**; a animação de patas fica fora do MVP (ticket 13, aberto); as três tochas com luz ficam como estão; teste no Safari dispensado. Com isso o ticket 01 fecha.
 - **Medições com a Uni na cena** (Chrome 153, WebGPU, M5): 120 fps, p95 9,7 ms, 0 quadros acima de 33 ms em 3024×1890; 2,1 MB transferidos a frio contra 0,6 MB antes. `pnpm verify` verde: lint, types, 41 testes Vitest, build e 7 cenários Playwright.
 
+## Decisões do produtor — 12/09/2026, fim da tarde
+
+Perguntas 4, 5 e 6 desta lista estão respondidas; ficam abaixo só para histórico.
+
+| Assunto | Decisão |
+| --- | --- |
+| Arte do Cenotáfio (07) e mãos/tacape (09) | Peças modulares no **Meshy** sobre o layout e as colisões que já existem em código. Blender fora do caminho |
+| Áudio e interface (10) | **Fechados como estão**: áudio sintetizado em WebAudio, sem arquivos nem licenças |
+| Teste com uma pessoa (12) | Alguém da casa joga no Mac do produtor, em `pnpm dev`. Sem publicação por link |
+| Medições | Só a rodada de 14:13 fica versionada (16 MB); as outras ficam fora do git |
+| Branch da Uni | Push e PR empilhado no PR #2 |
+| `docs/references/` | Mantido inteiro, inclusive `video/` e `frames/`, porque o ticket 07 vai precisar de quadros novos |
+| Repositório antigo no GitHub | O produtor apaga, com script de conferência em `scripts/ops/` |
+| Safari | Dispensado |
+
 ## Perguntas para você (todas juntas, como pediu)
 
 1. ~~Git~~ Resolvido em 12/09/2026: branch `feat/mvp-cenotafio` com commits por ticket. Casa única do projeto: `~/Projects/Github/dungeons-and-dragons-final-episode` (remote `origin` = `renatobardi/dungeons-and-dragons-final-episode`; tracker de issues e labels em `AGENTS.md` e `docs/agents/`). A pasta antiga em Documents foi movida para lá; o backup do conteúdo anterior da pasta está na Lixeira. O repositório `caverna-do-dragao-episodio-final` no GitHub (com o PR #1) ficou obsoleto e pode ser apagado por você.
