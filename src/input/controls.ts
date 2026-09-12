@@ -1,4 +1,5 @@
 import type { Command } from "../sim/simulation";
+import { keyMotion } from "./key-motion";
 
 export interface ControlsHost {
   send(cmd: Command): void;
@@ -67,12 +68,12 @@ export class Controls {
     if (document.pointerLockElement === this.canvas) document.exitPointerLock();
   }
 
-  /** Once per frame: turn the held keys into a move command. */
-  pump(): void {
+  /** Once per frame: turn the held keys into a move command, and into a turn when there is no mouse. */
+  pump(dt: number): void {
     if (!this.active) return;
-    const forward = (this.keys.has("KeyW") || this.keys.has("ArrowUp") ? 1 : 0) - (this.keys.has("KeyS") || this.keys.has("ArrowDown") ? 1 : 0);
-    const strafe = (this.keys.has("KeyD") || this.keys.has("ArrowRight") ? 1 : 0) - (this.keys.has("KeyA") || this.keys.has("ArrowLeft") ? 1 : 0);
-    this.host.send({ type: "move", forward, strafe });
+    const motion = keyMotion(this.keys, dt);
+    this.host.send({ type: "move", forward: motion.forward, strafe: motion.strafe });
+    if (motion.yaw !== 0) this.host.send({ type: "look", yaw: motion.yaw, pitch: 0 });
   }
 
 
@@ -84,7 +85,7 @@ export class Controls {
     if (!this.active) return;
     if (e.code === "KeyE") this.host.send({ type: "interact" });
     this.keys.add(e.code);
-    if (["KeyW", "KeyA", "KeyS", "KeyD", "Space"].includes(e.code)) e.preventDefault();
+    if (["KeyW", "KeyA", "KeyS", "KeyD", "Space", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.code)) e.preventDefault();
   }
 
   private mouseMove(e: PointerEvent): void {

@@ -165,7 +165,7 @@ export class Game {
     this.lastTime = now;
     if (dt > MAX_FRAME) dt = MAX_FRAME;
 
-    this.controls?.pump();
+    this.controls?.pump(dt);
     this.accumulator += dt;
     while (this.accumulator >= FIXED_STEP) {
       this.sim.step(FIXED_STEP);

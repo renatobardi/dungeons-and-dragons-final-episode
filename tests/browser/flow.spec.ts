@@ -123,6 +123,35 @@ test.describe("cenotaph entrance flow", () => {
     expect(errors).toEqual([]);
   });
 
+  test("P09: the side arrows turn Bobby without a mouse, and Alt makes them strafe", async ({ page }) => {
+    await expect(page.locator("body")).toHaveAttribute("data-state", "ready", { timeout: 30_000 });
+    await page.click("#play");
+    const start = await page.evaluate(() => window.__game!.snapshot().player);
+
+    await page.keyboard.down("ArrowRight");
+    await page.waitForTimeout(600);
+    await page.keyboard.up("ArrowRight");
+    const turned = await page.evaluate(() => window.__game!.snapshot().player);
+    expect(Math.abs(turned.yaw - start.yaw)).toBeGreaterThan(0.5);
+    expect(Math.hypot(turned.x - start.x, turned.z - start.z)).toBeLessThan(0.2);
+
+    await page.keyboard.down("ArrowLeft");
+    await page.waitForTimeout(600);
+    await page.keyboard.up("ArrowLeft");
+    const back = await page.evaluate(() => window.__game!.snapshot().player.yaw);
+    expect(back).toBeLessThan(turned.yaw - 0.5); // the other arrow turns the other way
+
+    await page.keyboard.down("Alt");
+    await page.keyboard.down("ArrowRight");
+    await page.waitForTimeout(800);
+    await page.keyboard.up("ArrowRight");
+    await page.keyboard.up("Alt");
+    const strafed = await page.evaluate(() => window.__game!.snapshot().player);
+    expect(strafed.yaw).toBeCloseTo(back, 5); // Alt turns the arrows into strafe, so the view holds still
+    expect(Math.hypot(strafed.x - turned.x, strafed.z - turned.z)).toBeGreaterThan(0.5);
+    expect(errors).toEqual([]);
+  });
+
   test("P03/P04: a real click does not open the passage; holding the button and releasing does", async ({ page }) => {
     await expect(page.locator("body")).toHaveAttribute("data-state", "ready", { timeout: 30_000 });
     await page.click("#play");
