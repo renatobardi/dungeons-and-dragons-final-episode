@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { hornGlow } from "../../src/render/uni-pose";
+import { hornGlow } from "../../src/render/uni-horn";
 
 describe("uni horn", () => {
   it("keeps the horn dark unless Uni is alert", () => {

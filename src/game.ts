@@ -228,8 +228,9 @@ export class Game {
       setQuality: (q: Partial<QualitySettings>) => this.view?.setQuality(q),
       restart: () => this.restart(),
       /** Counts Uni nodes across every live scene, so a leaked scene from a previous run is detected. */
-      uniGait: () => this.view?.uniGait() ?? { clip: null, frame: 0 },
       uniCount: () => this.engine?.scenes.reduce((n, sc) => n + sc.getTransformNodesById("uni").length, 0) ?? 0,
+      /** Which clip Uni is playing and the frame of it she is holding. */
+      uniGait: () => this.view?.uniGait() ?? { clip: null, frame: 0 },
       sceneCount: () => this.engine?.scenes.length ?? 0,
     };
   }

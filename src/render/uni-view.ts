@@ -4,6 +4,7 @@ import { Vector3 } from "@babylonjs/core/Maths/math.vector";
 import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder";
 import { TransformNode } from "@babylonjs/core/Meshes/transformNode";
 import type { Mesh } from "@babylonjs/core/Meshes/mesh";
+import type { AbstractMesh } from "@babylonjs/core/Meshes/abstractMesh";
 import type { AnimationGroup } from "@babylonjs/core/Animations/animationGroup";
 import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial";
 import { PBRMaterial } from "@babylonjs/core/Materials/PBR/pbrMaterial";
@@ -11,9 +12,9 @@ import { Texture } from "@babylonjs/core/Materials/Textures/texture";
 import { loadAssetContainerAsync } from "@babylonjs/core/Loading/sceneLoader";
 import type { ShadowGenerator } from "@babylonjs/core/Lights/Shadows/shadowGenerator";
 import "@babylonjs/loaders/glTF/2.0";
-import type { Snapshot } from "../sim/simulation";
-import { clipFor, walkPhase, type UniClip } from "./uni-gait";
-import { hornGlow } from "./uni-pose";
+import type { Snapshot, UniMode } from "../sim/simulation";
+import { walkPhase } from "./uni-gait";
+import { hornGlow } from "./uni-horn";
 
 /** Where the rigged Uni lives, relative to the page. Built by `scripts/rig-uni.py`. */
 export const UNI_MODEL_URL = "models/uni/uni-rigged.glb";
@@ -32,8 +33,8 @@ export class UniView {
   private readonly root: TransformNode;
   private readonly hornMaterial: StandardMaterial;
   private readonly glow: Mesh;
-  private readonly clips = new Map<UniClip, AnimationGroup>();
-  private playing: UniClip | null = null;
+  private readonly clips = new Map<UniMode, AnimationGroup>();
+  private playing: UniMode | null = null;
   private distance = 0;
   private last: { x: number; z: number } | null = null;
   private alertTime = 0;
@@ -66,6 +67,7 @@ export class UniView {
       painted.maxSimultaneousLights = 2;
 
       let horn: Vector3 | null = null;
+      let skinned: AbstractMesh | null = null;
       for (const mesh of container.meshes) {
         if (!mesh.parent) mesh.parent = this.root;
         if (mesh.getTotalVertices() === 0) continue;
@@ -73,7 +75,8 @@ export class UniView {
         // shadow maps push light data into the vertex stage; Uni casts shadows but does not receive them,
         // which keeps the WebGPU uniform-buffer budget inside the limit
         mesh.receiveShadows = false;
-        horn ??= highestVertex(mesh);
+        horn = higher(horn, highestVertex(mesh));
+        skinned ??= mesh.skeleton ? mesh : null;
         shadow.addShadowCaster(mesh);
       }
 
@@ -83,10 +86,12 @@ export class UniView {
       }
 
       // the horn is the highest point of the model, and the alert lifts the head, so the glow rides the
-      // head bone rather than sitting where the horn happened to be at rest
-      const head = container.skeletons[0]?.bones.find((b) => b.name === "head");
-      if (horn && head) {
-        this.glow.attachToBone(head, this.root);
+      // head bone rather than sitting where the horn happened to be at rest. Both the vertex and the
+      // bone's bind pose are in the skinned mesh's space, which is what the glow has to be attached to:
+      // the loader puts a flipped __root__ between that mesh and this one.
+      const head = skinned?.skeleton?.bones.find((b) => b.name === "head");
+      if (horn && head && skinned) {
+        this.glow.attachToBone(head, skinned);
         this.glow.position = Vector3.TransformCoordinates(horn, head.getInvertedAbsoluteTransform());
       } else if (horn) {
         this.glow.position.copyFrom(horn);
@@ -102,12 +107,11 @@ export class UniView {
     if (this.last) this.distance += Math.hypot(u.x - this.last.x, u.z - this.last.z);
     this.last = { x: u.x, z: u.z };
 
-    this.play(clipFor(u.mode));
-    const walk = this.playing === "walk" ? this.clips.get("walk") : undefined;
-    if (walk) {
-      this.frame = walk.from + walkPhase(this.distance) * (walk.to - walk.from);
-      walk.goToFrame(this.frame);
-    }
+    this.play(u.mode);
+    const walk = this.clips.get("walk");
+    // the phase is read every frame, walking or not, so that standing still visibly holds the cycle
+    if (walk) this.frame = walk.from + walkPhase(this.distance) * (walk.to - walk.from);
+    if (walk && this.playing === "walk") walk.goToFrame(this.frame);
 
     const glow = hornGlow(u.mode, this.alertTime);
     this.glow.isVisible = glow > 0.02;
@@ -119,19 +123,25 @@ export class UniView {
   }
 
   /** For browser tests: which clip is playing and the frame of it Uni is holding. */
-  gait(): { clip: UniClip | null; frame: number } {
+  gait(): { clip: UniMode | null; frame: number } {
     return { clip: this.playing, frame: this.frame };
   }
 
-  private play(clip: UniClip): void {
+  private play(clip: UniMode): void {
     if (this.playing === clip) return;
-    this.clips.get(this.playing as UniClip)?.stop();
+    if (this.playing) this.clips.get(this.playing)?.stop();
     const group = this.clips.get(clip);
     // the walk is scrubbed frame by frame from the distance covered, so it is started and then held
     group?.play(clip !== "walk");
     if (clip === "walk") group?.pause();
     this.playing = clip;
   }
+}
+
+function higher(a: Vector3 | null, b: Vector3 | null): Vector3 | null {
+  if (!a) return b;
+  if (!b) return a;
+  return b.y > a.y ? b : a;
 }
 
 function highestVertex(mesh: { getVerticesData(kind: string): Float32Array | number[] | null }): Vector3 | null {
