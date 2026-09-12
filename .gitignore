@@ -6,3 +6,4 @@ test-results/
 .env
 scripts/ops/
 .claude/settings.local.json
+docs/references/

@@ -62,8 +62,8 @@ Não corrigido, de propósito: o ticket 07 continua **parcial** (o revisor confi
 ## Perguntas para você (todas juntas, como pediu)
 
 1. **Git:** posso criar a branch `feat/mvp-cenotafio` a partir da `main` vazia e commitar em blocos por ticket? A guarda bloqueou o `git switch -c` por árvore suja. Alternativa: você cria a branch e eu commito.
-2. **Meshy:** conta confirmada? Sem isso, 01/08/09 não avançam. Blender também não está instalado nesta máquina.
-3. **Referências:** pode reunir 3 frames (Uni, Bobby, Cenotáfio) para a comparação do ticket 11?
+2. ~~Meshy~~ Premium assinado em 12/09/2026; MCP oficial instalado. Blender continua ausente; rigging e animação serão tentados no próprio Meshy.
+3. ~~Referências~~ 28 quadros capturados e aprovados em 12/09/2026 (`docs/REFERENCES.md`).
 4. **Aprovação visual do que existe:** o cenário provisório em código atende como base para a arte final, ou prefere que a produção de arte comece do zero no Blender?
 5. **Safari:** pode abrir o build no Safari 26 e apertar F3 para eu registrar a segunda coluna da tabela?
 6. **Artefatos de medição:** a pasta `docs/measurements/` tem 14 MB (PNGs 3024×1890 + vídeo). Versionar ou ignorar no git?
