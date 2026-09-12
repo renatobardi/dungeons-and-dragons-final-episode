@@ -1,7 +1,13 @@
 import { MatchStateMachine, type MatchState } from "./match-state";
 import type { LevelDefinition } from "./level";
-import { circleOverlapsXZ, containsXZ, dist2D, rayBox, type Box } from "./geometry";
+import { circleOverlapsXZ, containsXZ, dist2D, rayBox, type Box, type Vec3 } from "./geometry";
+import { aimPitch, easePitch } from "./auto-aim";
 import { Path } from "./path";
+
+/** Seconds of a still view before the aim assist takes over again. */
+const AIM_RELEASE = 1.5;
+/** Height of the light that marks the way out, matching the scene. */
+const EXIT_LIGHT_HEIGHT = 1.7;
 
 export type Command =
   | { type: "move"; forward: number; strafe: number }
@@ -60,6 +66,7 @@ export class Simulation {
   private pz: number;
   private yaw: number;
   private pitch = 0;
+  private sinceManualLook = AIM_RELEASE;
   private moveForward = 0;
   private moveStrafe = 0;
 
@@ -107,7 +114,10 @@ export class Simulation {
         return;
       case "look":
         this.yaw += cmd.yaw;
-        this.pitch = clamp(this.pitch + cmd.pitch, -PLAYER.maxPitch, PLAYER.maxPitch);
+        if (cmd.pitch !== 0) {
+          this.pitch = clamp(this.pitch + cmd.pitch, -PLAYER.maxPitch, PLAYER.maxPitch);
+          this.sinceManualLook = 0;
+        }
         return;
       case "chargeStart":
         this.charging = true;
@@ -134,6 +144,29 @@ export class Simulation {
     if (this.charging) this.chargeElapsed += dt;
     this.stepDiscovery();
     this.stepUni(dt);
+    this.stepAim(dt);
+  }
+
+  /**
+   * With no mouse there is no way to look up or down, so the view follows what Bobby can act on.
+   * A player who does look keeps control: the assist stands back until the view has been still.
+   */
+  private stepAim(dt: number): void {
+    this.sinceManualLook += dt;
+    if (this.sinceManualLook < AIM_RELEASE) return;
+    const eye = { x: this.px, y: PLAYER.eyeHeight, z: this.pz };
+    const desired = aimPitch(eye, this.yaw, this.aimTarget());
+    this.pitch = clamp(easePitch(this.pitch, desired, dt), -PLAYER.maxPitch, PLAYER.maxPitch);
+  }
+
+  /** The rubble while it blocks the way, the exit light once it is open. */
+  private aimTarget(): Vec3 | null {
+    if (this.obstacle === "intact") {
+      const o = this.level.obstacle.collider;
+      return { x: (o.minX + o.maxX) / 2, y: (o.minY + o.maxY) / 2, z: (o.minZ + o.maxZ) / 2 };
+    }
+    const e = this.level.exitZone;
+    return { x: (e.minX + e.maxX) / 2, y: EXIT_LIGHT_HEIGHT, z: (e.minZ + e.maxZ) / 2 };
   }
 
   drainEvents(): SimEvent[] {
