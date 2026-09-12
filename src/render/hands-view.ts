@@ -14,7 +14,9 @@ const CLUB_TEXTURE = "models/bobby/club-base-color.jpg";
 const HAND_URL = "models/bobby/hand.glb";
 const HAND_TEXTURE = "models/bobby/hand-base-color.jpg";
 /** Distance from the gripping hand to the club head in the provisional rig. */
-const CLUB_LENGTH = 0.46;
+const CLUB_LENGTH = 0.48;
+/** Bobby's club is a heavy blunt thing; the generated mesh comes out far too slim for it. */
+const CLUB_THICKNESS = 1.55;
 const HAND_SIZE = 0.13;
 /** Where the closed right hand sits in the rig, and so where the club's grip has to land. */
 const GRIP = { x: 0, y: -0.05, z: -0.02 };
@@ -98,7 +100,7 @@ export class HandsView {
       // the model already lies along the up-and-forward diagonal the rig wants, so only its length matters
       const along = Math.hypot(size.y, size.z);
       const fit = CLUB_LENGTH / along;
-      club.scaling.setAll(fit);
+      club.scaling.set(fit * CLUB_THICKNESS, fit, fit * CLUB_THICKNESS);
       // the grip is the low corner of the model; it is what has to sit in the closed right hand
       // Point the club along the rig's handle line, then drop the grip into the closed fist.
       const { grip, head } = ends(club);
