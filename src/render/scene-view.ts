@@ -248,6 +248,11 @@ export class SceneView {
     });
   }
 
+  /** For browser tests: the clip Uni is playing and the frame of it she is holding. */
+  uniGait(): ReturnType<UniView["gait"]> {
+    return this.uni.gait();
+  }
+
   applyEvent(ev: SimEvent): void {
     switch (ev.type) {
       case "strike":
