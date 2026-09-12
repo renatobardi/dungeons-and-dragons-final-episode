@@ -63,6 +63,7 @@ export class Game {
       this.applyDpr();
       this.overlay.setLoading(0.5, "Erguendo o Cenotáfio…");
       this.view = new SceneView(engine, CENOTAPH_ENTRANCE, this.quality);
+      await this.view.ready;
       await this.view.scene.whenReadyAsync();
       this.controls = new Controls(this.canvas, {
         send: (cmd) => this.send(cmd),
