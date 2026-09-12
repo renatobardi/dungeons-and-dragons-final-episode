@@ -15,13 +15,6 @@
     "measure": "node scripts/measure.ts",
     "verify": "pnpm lint && pnpm types && pnpm test && pnpm build && pnpm test:browser"
   },
-  "devEngines": {
-    "packageManager": {
-      "name": "pnpm",
-      "version": "^11.22.0",
-      "onFail": "download"
-    }
-  },
   "dependencies": {
     "@babylonjs/core": "^8.56.2"
   },
