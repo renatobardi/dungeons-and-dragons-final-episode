@@ -82,9 +82,8 @@ Conta Meshy Premium do produtor; a chave fica na configuração global do Claude
 
 | Identificador | Origem | Licença/permissão | Formato | Tamanho | Situação |
 | --- | --- | --- | --- | --- | --- |
-| `uni` | Gerado no Meshy a partir de `uni-fullbody-walk-side-s01e01-t0250s.jpg` (quadro do desenho, referência interna) | Conta Meshy Premium do produtor; saída própria. A referência é material protegido de terceiros, usada só como entrada de estilo | `public/models/uni/uni.glb` + `uni-base-color.jpg` | 1,24 MB + 277 KB | No jogo desde 12/09/2026; aparência pendente de aprovação escrita |
+| `uni` | Gerado no Meshy a partir de `uni-fullbody-walk-side-s01e01-t0250s.jpg` (quadro do desenho, referência interna) | Conta Meshy Premium do produtor; saída própria. A referência é material protegido de terceiros, usada só como entrada de estilo | `public/models/uni/uni.glb` + `uni-base-color.jpg` | 1,24 MB + 277 KB | No jogo desde 12/09/2026; aparência aprovada por escrito pelo produtor em 12/09/2026 |
 
 ## Pendente
 
-- Aprovação por escrito do produtor destes quadros como referência oficial (critério do ticket 01).
 - Pasta local: `docs/references/{{video,frames,sheets,selected}}` (~800 MB). Apagar `video/` e `frames/` após a aprovação, se quiser liberar espaço; `selected/` basta.

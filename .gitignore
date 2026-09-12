@@ -7,3 +7,7 @@ test-results/
 scripts/ops/
 .claude/settings.local.json
 docs/references/
+
+# medições: só a rodada versionada explicitamente fica no git
+docs/measurements/*
+!docs/measurements/2026-09-12T14-13-50-001Z/
