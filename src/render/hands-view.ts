@@ -3,32 +3,25 @@ import { Vector3 } from "@babylonjs/core/Maths/math.vector";
 import { loadAssetContainerAsync } from "@babylonjs/core/Loading/sceneLoader";
 import type { Mesh } from "@babylonjs/core/Meshes/mesh";
 import { TransformNode } from "@babylonjs/core/Meshes/transformNode";
+import { PointLight } from "@babylonjs/core/Lights/pointLight";
+import { Color3 } from "@babylonjs/core/Maths/math.color";
 import { PBRMaterial } from "@babylonjs/core/Materials/PBR/pbrMaterial";
 import type { UniversalCamera } from "@babylonjs/core/Cameras/universalCamera";
 import type { Snapshot } from "../sim/simulation";
 import { strikePose, STRIKE_DURATION } from "./strike-pose";
 
-/**
- * Bobby's arms are two generated pieces, each a forearm continuing into a hand with its bracelet.
- * The right one carries the club as part of the same mesh: the fingers close around a grip that was
- * modelled with them, so there is no join to line up and nothing to interpenetrate when the swing
- * scales or rotates the rig — which is what the two-piece hand-plus-club kit kept getting wrong.
- */
+/** Finished Blender forearms; the right grip and wooden club share the source mesh. */
 const RIGHT_URL = "models/bobby/right-arm-club.glb";
 const LEFT_URL = "models/bobby/left-arm.glb";
 
 /** Length of the right piece, elbow to club head, in metres. Bobby is a child; the club is his size. */
-const RIGHT_LENGTH = 0.6;
-const LEFT_LENGTH = 0.33;
-/**
- * The rig turns about Bobby's chest, not about his eyes. Swinging around the camera origin threw the
- * arms off the top of the frame as soon as the charge pulled back; hung from the chest they arc the
- * way a shoulder moves and the elbows stay where they belong.
- */
+const RIGHT_LENGTH = 0.90;
+const LEFT_LENGTH = 0.40;
+/** Motion originates below the eyes; the finished forearms continue towards the body. */
 const CHEST = new Vector3(0, -0.52, -0.12);
 /** Where each arm sits relative to the chest, and how it is turned to face back down the view. */
-const RIGHT_REST = { position: new Vector3(0.27, 0.2, 0.72), rotation: new Vector3(0.15, Math.PI, 0.1) };
-const LEFT_REST = { position: new Vector3(-0.29, 0.24, 0.7), rotation: new Vector3(0.1, Math.PI, -0.14) };
+const RIGHT_REST = { position: new Vector3(0.36, 0.45, 0.82), rotation: new Vector3(0.08, 0, -0.04) };
+const LEFT_REST = { position: new Vector3(-0.30, 0.23, 0.65), rotation: new Vector3(-0.65, 0, -0.14) };
 /** The off hand follows the swing, but it is not the one holding the club. */
 const OFF_HAND_SHARE = 0.35;
 
@@ -37,11 +30,14 @@ export class HandsView {
   private readonly rig: TransformNode;
   private readonly right: TransformNode;
   private readonly left: TransformNode;
+  private readonly bounce: PointLight;
   /** Resolves once both arms are in the scene, so loading can wait for the equipment. */
   readonly loaded: Promise<void>;
   private swingTime = -1;
   private swingHeavy = false;
   private bob = 0;
+  private heldCharge = 0;
+  private releaseCharge = 0;
 
   constructor(scene: Scene, camera: UniversalCamera) {
     this.rig = new TransformNode("handsRig", scene);
@@ -52,6 +48,14 @@ export class HandsView {
     this.left = new TransformNode("leftArm", scene);
     this.left.parent = this.rig;
 
+    // A restrained warm bounce keeps close skin/wood readable under the cold overhead key.
+    this.bounce = new PointLight("equipmentBounce", new Vector3(-0.35, 0.35, 0.1), scene);
+    this.bounce.parent = camera;
+    this.bounce.diffuse = new Color3(1, 0.78, 0.58);
+    this.bounce.intensity = 0.65;
+    this.bounce.range = 2;
+    this.bounce.renderPriority = 1;
+    this.bounce.setEnabled(false);
     this.loaded = this.loadArms(scene);
   }
 
@@ -66,19 +70,21 @@ export class HandsView {
       const mesh = container.meshes.find((m) => m.getTotalVertices() > 0) as Mesh | undefined;
       if (!mesh) return;
 
-      // the glTF __root__ is scaled -1 on X to convert handedness and would mirror every placement
+      // Apply the glTF handedness conversion explicitly after detaching the generated root.
       mesh.parent = null;
       mesh.rotationQuaternion = null;
 
       // These arms keep the maps they were generated with — skin and worn wood are most of what the
-      // reference is about — but a glTF material defaults to every light in the scene, and the room
-      // has more than WebGPU will bind in one shader stage.
+      // reference is about. Limit bindings to the equipment bounce and two scene lights.
       for (const material of container.materials) {
-        if (material instanceof PBRMaterial) material.maxSimultaneousLights = 2;
+        if (material instanceof PBRMaterial) material.maxSimultaneousLights = 3;
       }
 
-      const size = mesh.getBoundingInfo().boundingBox.extendSize.scale(2);
-      mesh.scaling.setAll(length / Math.max(size.x, size.y, size.z));
+      // Both sources span 1.904 units before the Blender forearm continuation.
+      // Including that continuation in normalization would shrink the hands and club.
+      mesh.scaling.setAll(length / 1.904);
+      // Convert glTF to the left-handed camera without mirroring Bobby's grip.
+      mesh.scaling.z *= -1;
       mesh.position = Vector3.Zero();
       mesh.parent = into;
       into.position.copyFrom(rest.position);
@@ -86,12 +92,14 @@ export class HandsView {
 
       // drawn on top of the world, so a wall or the rubble never hides Bobby's own arms
       mesh.renderingGroupId = 1;
+      this.bounce.includedOnlyMeshes.push(mesh);
     };
 
     await Promise.all([
       take(RIGHT_URL, this.right, RIGHT_LENGTH, RIGHT_REST),
       take(LEFT_URL, this.left, LEFT_LENGTH, LEFT_REST),
     ]);
+    this.bounce.setEnabled(true);
   }
 
   update(charge: Snapshot["charge"], dt: number): void {
@@ -103,23 +111,23 @@ export class HandsView {
     let lift = Math.sin(this.bob * 1.8) * 0.006;
     let forward = 0;
 
-    if (charge.charging) {
-      // the club is pulled back over the shoulder as the charge builds; ready = held high, trembling
-      const p = charge.progress;
-      // held high and cocked, but still in frame: past about half a radian the club leaves the top of
-      // the screen and the charge reads as the arms disappearing rather than as effort
-      pitch -= 0.4 * p;
-      roll += 0.26 * p;
-      lift += 0.06 * p;
+    this.heldCharge = charge.charging ? charge.progress : 0;
+    const carry = this.swingTime >= 0 ? this.releaseCharge * Math.max(0, 1 - this.swingTime / (this.swingHeavy ? STRIKE_DURATION.heavy : STRIKE_DURATION.light)) : 0;
+    if (charge.charging || carry > 0) {
+      // A compact preparation keeps the child's grip visible; readiness adds a restrained tremor.
+      const p = charge.charging ? charge.progress : carry;
+      pitch -= 0.06 * p;
+      roll += 0.08 * p;
+      lift += 0.012 * p;
       forward -= 0.02 * p;
-      if (charge.ready) lift += Math.sin(this.bob * 50) * 0.005;
+      if (charge.ready) lift += Math.sin(this.bob * 12) * 0.0007;
     }
 
     if (this.swingTime >= 0) {
       const pose = strikePose(this.swingTime, this.swingHeavy);
-      pitch += pose.pitch;
-      roll += pose.roll;
-      lift += pose.lift;
+      pitch += pose.pitch * 0.32;
+      roll += pose.roll * 0.5;
+      lift += pose.lift * 0.3;
       this.swingTime += dt;
       if (pose.done) this.swingTime = -1;
     }
@@ -135,6 +143,7 @@ export class HandsView {
   }
 
   swing(heavy: boolean): void {
+    this.releaseCharge = this.heldCharge;
     this.swingTime = 0;
     this.swingHeavy = heavy;
   }
