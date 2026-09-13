@@ -35,15 +35,12 @@ import { fitScale } from "./fit";
 
 /** Cenotaph kit: the column made in ticket 07 and the painted stone that goes with it. */
 const COLUMN_MODEL_URL = "models/cenotaph/column.glb";
-const COLUMN_TEXTURE_URL = "models/cenotaph/column-base-color.jpg";
 /** The volume the level already reserves for a column, so the colliders stay where they are. */
 const COLUMN_SIZE = { x: 0.8, y: 4, z: 0.8 };
 const RUBBLE_INTACT_URL = "models/cenotaph/rubble-intact.glb";
 const RUBBLE_BROKEN_URL = "models/cenotaph/rubble-broken.glb";
 const ARCH_URL = "models/cenotaph/arch.glb";
-const ARCH_TEXTURE = "models/cenotaph/arch-base-color.jpg";
 const STATUE_URL = "models/cenotaph/statue.glb";
-const STATUE_TEXTURE = "models/cenotaph/statue-base-color.jpg";
 /** Statues stand against the north and south walls of the room, clear of the columns at x 12.5 and 17.5. */
 const STATUE_SPOTS: [number, number, number][] = [
   [15, 21.4, Math.PI],
@@ -78,6 +75,8 @@ export class SceneView {
   private readonly dust: ParticleSystem;
   private readonly torches: Torch[];
   private readonly chapel: ReturnType<typeof buildChapel>;
+  /** The room's masonry. The kit pieces wear it too, so the tomb reads as one quarry. */
+  private readonly stoneMaterial: PBRMaterial;
   private readonly shadow: ShadowGenerator;
   private readonly pipeline: DefaultRenderingPipeline;
   private taa: TAARenderingPipeline | null = null;
@@ -121,6 +120,7 @@ export class SceneView {
     this.shadow.normalBias = 0.02;
 
     const wallMat = this.stone("wall", STONE_WALL);
+    this.stoneMaterial = wallMat;
     const floorMat = this.stone("floor", STONE_FLOOR, 9);
     const rubbleMat = this.stone("rubble", RUBBLE, 18);
 
@@ -419,15 +419,6 @@ export class SceneView {
 
   /** Decoration with no collider: the arch framing the portico mouth and the statues along the room. */
   private async loadDecor(): Promise<void> {
-    const paint = (name: string, texture: string): PBRMaterial => {
-      const mat = new PBRMaterial(name, this.scene);
-      mat.albedoTexture = new Texture(texture, this.scene, { invertY: false });
-      mat.metallic = 0;
-      mat.roughness = 0.92;
-      mat.maxSimultaneousLights = 2;
-      return mat;
-    };
-
     const [archBox, statueBox] = await Promise.all([
       loadAssetContainerAsync(ARCH_URL, this.scene, { pluginOptions: { gltf: { skipMaterials: true } } }),
       loadAssetContainerAsync(STATUE_URL, this.scene, { pluginOptions: { gltf: { skipMaterials: true } } }),
@@ -443,7 +434,7 @@ export class SceneView {
     const arch = archBox.meshes.find((m) => m.getTotalVertices() > 0);
     if (arch) {
       arch.parent = null;
-      arch.material = paint("archPainted", ARCH_TEXTURE);
+      arch.material = this.stoneMaterial;
       arch.receiveShadows = false;
       const size = arch.getBoundingInfo().boundingBox.extendSize.scale(2);
       const MOUTH = 3; // the corridor opening the portico wall leaves
@@ -457,7 +448,7 @@ export class SceneView {
     const statue = statueBox.meshes.find((m) => m.getTotalVertices() > 0);
     if (statue) {
       statue.parent = null;
-      statue.material = paint("statuePainted", STATUE_TEXTURE);
+      statue.material = this.stoneMaterial;
       statue.receiveShadows = false;
       const size = statue.getBoundingInfo().boundingBox.extendSize.scale(2);
       const up = 2.2 / size.y;
@@ -488,12 +479,7 @@ export class SceneView {
     source.parent = null;
     source.rotationQuaternion = null;
 
-    const painted = new PBRMaterial("columnPainted", this.scene);
-    painted.albedoTexture = new Texture(COLUMN_TEXTURE_URL, this.scene, { invertY: false });
-    painted.metallic = 0;
-    painted.roughness = 0.9;
-    painted.maxSimultaneousLights = 2;
-    source.material = painted;
+    source.material = this.stoneMaterial;
     source.receiveShadows = false;
 
     const size = source.getBoundingInfo().boundingBox.extendSize.scale(2);

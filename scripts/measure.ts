@@ -44,9 +44,19 @@ async function main(): Promise<void> {
   };
   await tour("const g=window.__game; g.command({type:'move',forward:1,strafe:0}); g.fastForward(1.2); g.command({type:'move',forward:0,strafe:0});", "02-corridor");
   await tour("const g=window.__game; g.command({type:'move',forward:1,strafe:0}); g.fastForward(2); g.command({type:'move',forward:0,strafe:0}); g.command({type:'look',yaw:Math.PI+0.4,pitch:-0.25});", "03-uni");
+  // Uni close and full length, which the spec says a wide shot does not stand in for
+  await tour("const g=window.__game; g.fastForward(2.5); const s=g.snapshot(); g.command({type:'look',yaw:0,pitch:-0.5-s.player.pitch});", "03b-uni-close");
   await tour(
     "const g=window.__game; g.command({type:'look',yaw:-Math.PI-0.4,pitch:0.25}); g.command({type:'move',forward:1,strafe:0}); g.fastForward(1.2); g.command({type:'look',yaw:Math.PI/2,pitch:0}); g.fastForward(1.5); g.command({type:'look',yaw:-0.15,pitch:0}); g.fastForward(3); g.command({type:'look',yaw:0.15,pitch:0}); g.fastForward(0.2); g.command({type:'move',forward:0,strafe:0}); g.command({type:'look',yaw:Math.PI/2-g.snapshot().player.yaw,pitch:0.05});",
     "04-blocked-passage",
+  );
+  // the chapel height, from Bobby's own eyes: the spec will not take an external presentation camera
+  await tour("const g=window.__game; const s=g.snapshot(); g.command({type:'look',yaw:0,pitch:1.15-s.player.pitch});", "04b-vault");
+  await tour("const g=window.__game; const s=g.snapshot(); g.command({type:'look',yaw:0.9,pitch:0.35-s.player.pitch});", "04c-columns-statues");
+  await tour("const g=window.__game; const s=g.snapshot(); g.command({type:'look',yaw:-0.9,pitch:-0.05-s.player.pitch}); g.command({type:'chargeStart'}); g.fastForward(0.8);", "04d-charge");
+  await tour(
+    "const g=window.__game; g.command({type:'chargeRelease'}); g.fastForward(0.05); const s=g.snapshot(); g.command({type:'look',yaw:0,pitch:-0.05-s.player.pitch});",
+    "04e-strike",
   );
   await tour(
     "const g=window.__game; g.command({type:'look',yaw:0,pitch:-0.05}); g.command({type:'move',forward:1,strafe:0}); g.fastForward(1.5); g.command({type:'move',forward:0,strafe:0}); g.command({type:'chargeStart'}); g.fastForward(0.7); g.command({type:'chargeRelease'}); g.fastForward(0.3); g.command({type:'move',forward:-1,strafe:0}); g.fastForward(0.8); g.command({type:'move',forward:0,strafe:0});",
