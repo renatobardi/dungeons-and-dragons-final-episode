@@ -11,3 +11,8 @@ docs/references/
 # medições: só a rodada versionada explicitamente fica no git
 docs/measurements/*
 !docs/measurements/2026-09-12T14-13-50-001Z/
+
+# Saídas cruas do Meshy: 60 MB cada, reprodutíveis pelos task ids em docs/MESHY-LEDGER.md.
+# O que entra no git é o recurso acabado em public/models/ e o original editável .blend.
+assets/models/**/*-raw.glb
+assets/models/**/*-raw_textures/

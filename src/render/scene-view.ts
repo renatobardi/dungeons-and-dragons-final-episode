@@ -1,6 +1,6 @@
 import { Scene } from "@babylonjs/core/scene";
 import { Color3, Color4 } from "@babylonjs/core/Maths/math.color";
-import { Vector3 } from "@babylonjs/core/Maths/math.vector";
+import { Vector3, Vector4 } from "@babylonjs/core/Maths/math.vector";
 import { UniversalCamera } from "@babylonjs/core/Cameras/universalCamera";
 import { HemisphericLight } from "@babylonjs/core/Lights/hemisphericLight";
 import { DirectionalLight } from "@babylonjs/core/Lights/directionalLight";
@@ -26,29 +26,35 @@ import "@babylonjs/core/Rendering/geometryBufferRendererSceneComponent";
 import type { LevelDefinition } from "../sim/level";
 import type { Box } from "../sim/geometry";
 import type { SimEvent, Snapshot } from "../sim/simulation";
-import { paintedTexture, RUBBLE, STONE_FLOOR, STONE_WALL } from "./textures";
+import { stoneSurface, RUBBLE, STONE_FLOOR, STONE_WALL } from "./textures";
+import { buildChapel, buildExit, TILE, VAULT_CROWN } from "./chapel";
+import { boxFaceUvs } from "./uv";
+import { buildTorch, flicker, type Torch } from "./torch";
 import { UniView } from "./uni-view";
 import { fitScale } from "./fit";
 
 /** Cenotaph kit: the column made in ticket 07 and the painted stone that goes with it. */
 const COLUMN_MODEL_URL = "models/cenotaph/column.glb";
-const COLUMN_TEXTURE_URL = "models/cenotaph/column-base-color.jpg";
 /** The volume the level already reserves for a column, so the colliders stay where they are. */
 const COLUMN_SIZE = { x: 0.8, y: 4, z: 0.8 };
 const RUBBLE_INTACT_URL = "models/cenotaph/rubble-intact.glb";
-const RUBBLE_INTACT_TEXTURE = "models/cenotaph/rubble-intact-base-color.jpg";
 const RUBBLE_BROKEN_URL = "models/cenotaph/rubble-broken.glb";
-const RUBBLE_BROKEN_TEXTURE = "models/cenotaph/rubble-broken-base-color.jpg";
 const ARCH_URL = "models/cenotaph/arch.glb";
-const ARCH_TEXTURE = "models/cenotaph/arch-base-color.jpg";
 const STATUE_URL = "models/cenotaph/statue.glb";
-const STATUE_TEXTURE = "models/cenotaph/statue-base-color.jpg";
 /** Statues stand against the north and south walls of the room, clear of the columns at x 12.5 and 17.5. */
 const STATUE_SPOTS: [number, number, number][] = [
   [15, 21.4, Math.PI],
   [15, 12.6, 0],
 ];
 import { HandsView } from "./hands-view";
+
+/**
+ * Which sconces carry a real light. The scene tops out at seven lights on WebGPU — the shaft, the sky,
+ * the exit and four torches — and asking for one more does not warn, it renders black. Measured, not
+ * assumed: five lit torches is a black screen on this Mac in Chrome. The unlit ones still burn, and
+ * these four are the ones whose pools of light the route actually passes through.
+ */
+const LIT_TORCHES = new Set([1, 3, 4, 5]);
 
 export interface QualitySettings {
   taa: boolean;
@@ -67,7 +73,10 @@ export class SceneView {
   private readonly obstacleIntact: TransformNode;
   private readonly obstacleBroken: TransformNode;
   private readonly dust: ParticleSystem;
-  private readonly torches: PointLight[] = [];
+  private readonly torches: Torch[];
+  private readonly chapel: ReturnType<typeof buildChapel>;
+  /** The room's masonry. The kit pieces wear it too, so the tomb reads as one quarry. */
+  private readonly stoneMaterial: PBRMaterial;
   private readonly shadow: ShadowGenerator;
   private readonly pipeline: DefaultRenderingPipeline;
   private taa: TAARenderingPipeline | null = null;
@@ -83,7 +92,7 @@ export class SceneView {
     scene.clearColor = new Color4(0.02, 0.015, 0.03, 1);
     scene.ambientColor = new Color3(0.25, 0.22, 0.28);
     scene.fogMode = Scene.FOGMODE_EXP2;
-    scene.fogDensity = 0.028;
+    scene.fogDensity = 0.016; // the vault has to stay readable seventeen metres up
     scene.fogColor = new Color3(0.05, 0.04, 0.07);
 
     this.camera = new UniversalCamera("bobby", new Vector3(0, 1.2, 0), scene);
@@ -96,11 +105,13 @@ export class SceneView {
     const sun = new DirectionalLight("shaft", new Vector3(-0.35, -1, 0.55), scene);
     sun.intensity = 1.6;
     sun.diffuse = new Color3(0.72, 0.78, 0.95);
-    sun.position = new Vector3(6, 12, 4);
+    sun.position = new Vector3(6, VAULT_CROWN + 6, 4);
+    sun.shadowMinZ = 1;
+    sun.shadowMaxZ = 60;
     const hemi = new HemisphericLight("sky", new Vector3(0, 1, 0), scene);
-    hemi.intensity = 0.35;
-    hemi.diffuse = new Color3(0.5, 0.48, 0.6);
-    hemi.groundColor = new Color3(0.12, 0.08, 0.1);
+    hemi.intensity = 0.55;
+    hemi.diffuse = new Color3(0.56, 0.6, 0.74); // daylight down the clerestory
+    hemi.groundColor = new Color3(0.34, 0.26, 0.22); // torchlight bouncing off the floor, which is all the vault gets
 
     this.shadow = new ShadowGenerator(quality.highShadows ? 2048 : 1024, sun);
     this.shadow.usePercentageCloserFiltering = true;
@@ -108,18 +119,29 @@ export class SceneView {
     this.shadow.bias = 0.0015;
     this.shadow.normalBias = 0.02;
 
-    const wallMat = this.stone("wall", STONE_WALL, 2.5);
-    const floorMat = this.stone("floor", STONE_FLOOR, 4);
-    const rubbleMat = this.stone("rubble", RUBBLE, 1.2);
+    const wallMat = this.stone("wall", STONE_WALL);
+    this.stoneMaterial = wallMat;
+    const floorMat = this.stone("floor", STONE_FLOOR, 9);
+    const rubbleMat = this.stone("rubble", RUBBLE, 18);
 
-    const floor = MeshBuilder.CreateGround("floor", { width: 80, height: 80, subdivisions: 2 }, scene);
-    floor.position = new Vector3(10, 0, 10);
+    const floor = this.slab("floor", -30, -30, 50, 50, 0, false);
     floor.material = floorMat;
     floor.receiveShadows = true;
-    const ceiling = MeshBuilder.CreateGround("ceiling", { width: 80, height: 80 }, scene);
-    ceiling.position = new Vector3(10, 4, 10);
-    ceiling.rotation.x = Math.PI;
-    ceiling.material = wallMat;
+    // The corridor and the portico keep their low ceiling; the room is left open, because the chapel
+    // vault closes it seventeen metres up. Four slabs around the room do what one 80 m slab used to.
+    const r = level.room;
+    const lid = (name: string, minX: number, minZ: number, maxX: number, maxZ: number): void => {
+      this.slab(name, minX, minZ, maxX, maxZ, 4, true).material = wallMat;
+    };
+    lid("ceilingS", -30, -30, 50, r.minZ);
+    lid("ceilingN", -30, r.maxZ, 50, 50);
+    lid("ceilingW", -30, r.minZ, r.minX, r.maxZ);
+    lid("ceilingE", r.maxX, r.minZ, 50, r.maxZ);
+
+    this.chapel = buildChapel(scene, r, wallMat);
+    // the chapel takes light but casts none: a vault in the shadow map would put the whole room under
+    // its own shadow, which is the opposite of what the height is there to show
+    for (const m of this.chapel.stone) m.receiveShadows = true;
 
     // the column colliders live in the wall list too; the kit model stands in their place, so the box
     // that would hide it is not drawn
@@ -143,22 +165,15 @@ export class SceneView {
       [24.85, 2.6, 17],
     ];
     const glow = new GlowLayer("glow", scene, { blurKernelSize: 32 });
-    glow.intensity = 0.6;
-    const flameMat = new StandardMaterial("flame", scene);
-    flameMat.emissiveColor = new Color3(1, 0.55, 0.15);
-    flameMat.disableLighting = true;
-    for (const [x, y, z] of torchSpots) {
-      const light = new PointLight(`torch${this.torches.length}`, new Vector3(x, y, z), scene);
-      light.diffuse = new Color3(1, 0.62, 0.3);
-      light.intensity = 9;
-      light.range = 12;
-      this.torches.push(light);
-      const flame = MeshBuilder.CreateSphere(`flame${this.torches.length}`, { diameter: 0.22, segments: 6 }, scene);
-      flame.position = new Vector3(x, y, z);
-      flame.material = flameMat;
-      const holder = MeshBuilder.CreateCylinder(`holder${this.torches.length}`, { height: 0.5, diameter: 0.08 }, scene);
-      holder.position = new Vector3(x, y - 0.3, z);
-      holder.material = rubbleMat;
+    glow.intensity = 0.32; // enough to bloom the wick, not enough to swallow the flame into a ball
+    // Every torch burns, but only the first few carry a light. WebGPU binds a limited number of
+    // uniform buffers per shader stage, and with the chapel and Uni in the scene the room cannot
+    // afford one light per sconce; the flames still light themselves through the glow layer.
+    this.torches = torchSpots.map(([x, y, z], i) =>
+      buildTorch(scene, new Vector3(x, y, z), rubbleMat, i, { lit: LIT_TORCHES.has(i) }),
+    );
+    for (const torch of this.torches) {
+      for (const piece of torch.iron) this.shadow.addShadowCaster(piece);
     }
 
     // obstacle: intact pile vs broken rubble
@@ -166,30 +181,23 @@ export class SceneView {
     this.obstacleBroken = new TransformNode("obstacleBroken", scene);
     this.obstacleBroken.setEnabled(false);
 
-    // exit: a warm glow beyond the doorway
-    const exitMat = new StandardMaterial("exitMat", scene);
-    exitMat.emissiveColor = new Color3(0.62, 0.5, 0.28);
-    exitMat.disableLighting = true;
-    exitMat.backFaceCulling = false;
+    // exit: a lit pointed arch at the end of the antechamber, not a pane of white
+    const exit = buildExit(scene, level.exitZone, wallMat);
+    for (const m of exit.stone) {
+      m.receiveShadows = true;
+      this.shadow.addShadowCaster(m);
+    }
     const e = level.exitZone;
-    const exitPlane = MeshBuilder.CreatePlane("exitGlow", { width: 2.6, height: 3.2 }, scene);
-    exitPlane.position = new Vector3(e.maxX - 0.05, 1.7, (e.minZ + e.maxZ) / 2);
-    exitPlane.rotation.y = -Math.PI / 2;
-    exitPlane.material = exitMat;
-    const exitLight = new PointLight("exitLight", new Vector3(e.maxX - 0.6, 1.8, (e.minZ + e.maxZ) / 2), scene);
-    exitLight.diffuse = new Color3(1, 0.85, 0.5);
-    exitLight.intensity = 12;
-    exitLight.range = 8;
+    const exitLight = new PointLight("exitLight", new Vector3(e.maxX - 0.9, 1.9, (e.minZ + e.maxZ) / 2), scene);
+    exitLight.diffuse = new Color3(1, 0.82, 0.48);
+    exitLight.intensity = 14;
+    exitLight.range = 9;
 
     this.dust = this.buildDust(level.obstacle.collider);
 
     this.uni = new UniView(scene, this.shadow);
     this.hands = new HandsView(scene, this.camera);
-    this.ready = Promise.all([this.uni.loaded, this.loadColumns(), this.loadObstacle(), this.loadDecor()]).then(() => undefined);
-
-    // WebGPU allows 12 uniform buffers per shader stage. With Uni's model in the scene the room cannot
-    // afford a light per torch, so only the nearest three torches cast light; the flames still glow.
-    for (const torch of this.torches.slice(3)) torch.dispose();
+    this.ready = Promise.all([this.uni.loaded, this.hands.loaded, this.loadColumns(), this.loadObstacle(), this.loadDecor()]).then(() => undefined);
 
     this.pipeline = new DefaultRenderingPipeline("post", true, scene, [this.camera]);
     this.pipeline.bloomEnabled = true;
@@ -243,9 +251,13 @@ export class SceneView {
     this.uni.update(s.uni, dt);
     this.hands.update(s.charge, dt);
 
-    this.torches.forEach((t, i) => {
-      t.intensity = 8 + Math.sin(this.elapsed * (7 + i) + i * 1.7) * 0.9 + Math.sin(this.elapsed * 13 + i) * 0.5;
+    // the shafts drift, the way dust in a real beam never holds still
+    this.chapel.shafts.forEach((shaft, i) => {
+      const mat = shaft.material as StandardMaterial;
+      mat.alpha = 0.2 + Math.sin(this.elapsed * 0.5 + i * 1.3) * 0.04;
     });
+
+    this.torches.forEach((torch, i) => flicker(torch, this.elapsed, i));
   }
 
   /** For browser tests: the clip Uni is playing and the frame of it she is holding. */
@@ -277,24 +289,53 @@ export class SceneView {
 
   // --- builders -------------------------------------------------------------
 
-  private stone(name: string, spec: typeof STONE_WALL, tiles: number): PBRMaterial {
+  /**
+   * One masonry material: colour, relief and roughness from the same procedural stone, so the walls
+   * answer a torch the way a carved block does instead of like a printed card.
+   */
+  private stone(name: string, spec: typeof STONE_WALL, relief = 14): PBRMaterial {
     const mat = new PBRMaterial(name, this.scene);
-    const tex = paintedTexture(this.scene, `${name}Tex`, 1024, spec);
-    tex.wrapU = Texture.WRAP_ADDRESSMODE;
-    tex.wrapV = Texture.WRAP_ADDRESSMODE;
-    tex.uScale = tiles;
-    tex.vScale = tiles;
-    mat.albedoTexture = tex;
+    const surface = stoneSurface(this.scene, name, 1024, spec, relief);
+    for (const tex of [surface.albedo, surface.normal, surface.roughness]) {
+      tex.wrapU = Texture.WRAP_ADDRESSMODE;
+      tex.wrapV = Texture.WRAP_ADDRESSMODE;
+      // every mesh carries UVs measured in metres, so the material itself tiles once
+    }
+    mat.albedoTexture = surface.albedo;
+    mat.bumpTexture = surface.normal;
+    mat.metallicTexture = surface.roughness;
+    mat.useRoughnessFromMetallicTextureGreen = true;
+    mat.useMetallnessFromMetallicTextureBlue = true;
     mat.metallic = 0;
-    mat.roughness = 0.92;
+    mat.roughness = 1;
     mat.ambientColor = new Color3(0.4, 0.38, 0.45);
     return mat;
   }
 
 
   private boxMesh(name: string, b: Box): Mesh {
-    const m = MeshBuilder.CreateBox(name, { width: b.maxX - b.minX, height: b.maxY - b.minY, depth: b.maxZ - b.minZ }, this.scene);
+    const width = b.maxX - b.minX;
+    const height = b.maxY - b.minY;
+    const depth = b.maxZ - b.minZ;
+    const faceUV = boxFaceUvs(width, height, depth, TILE).map((f) => new Vector4(...f));
+    const m = MeshBuilder.CreateBox(name, { width, height, depth, faceUV, wrap: true }, this.scene);
     m.position = new Vector3((b.minX + b.maxX) / 2, (b.minY + b.maxY) / 2, (b.minZ + b.maxZ) / 2);
+    return m;
+  }
+
+  /** A floor or ceiling slab whose UVs are metres, like every other surface in the room. */
+  private slab(name: string, minX: number, minZ: number, maxX: number, maxZ: number, y: number, flip: boolean): Mesh {
+    const width = maxX - minX;
+    const depth = maxZ - minZ;
+    const m = MeshBuilder.CreateGround(name, { width, height: depth, subdivisions: 2 }, this.scene);
+    const uvs = m.getVerticesData("uv")!;
+    for (let i = 0; i < uvs.length; i += 2) {
+      uvs[i] = uvs[i]! * (width / TILE);
+      uvs[i + 1] = uvs[i + 1]! * (depth / TILE);
+    }
+    m.setVerticesData("uv", uvs);
+    m.position = new Vector3((minX + maxX) / 2, y, (minZ + maxZ) / 2);
+    if (flip) m.rotation.x = Math.PI;
     return m;
   }
 
@@ -305,9 +346,13 @@ export class SceneView {
    * scene light into the vertex stage and WebGPU rejects the frame.
    */
   /**
-   * The blocked passage, from the same kit. The pieces are shallow reliefs, because the reference image
-   * is a straight-on view: the face is stretched to the doorway the level reserves and the depth is left
-   * alone, or the blocks smear into long prisms. The collider does not move either way.
+   * The blocked passage. The intact pile is a real heap of broken blocks with a fallen column drum in
+   * it, so it is placed whole and scaled uniformly: stretching it to the doorway, the way the old flat
+   * relief was, would smear the blocks into prisms and take the mass out of the obstacle.
+   *
+   * The broken state is the same heap of debris swept to either jamb, with the middle of the doorway
+   * left clear. Bobby needs 0.35 m of room and a path he can see is open; a pile left across the
+   * centre reads as still blocked even when the collider is gone.
    */
   private async loadObstacle(): Promise<void> {
     const b = this.level.obstacle.collider;
@@ -315,53 +360,65 @@ export class SceneView {
     const cz = (b.minZ + b.maxZ) / 2;
     const doorway = { width: b.maxZ - b.minZ, height: b.maxY - b.minY };
 
-    const place = async (url: string, texture: string, root: TransformNode, lyingDown: boolean): Promise<void> => {
-      const container = await loadAssetContainerAsync(url, this.scene, { pluginOptions: { gltf: { skipMaterials: true } } });
+    const take = async (url: string): Promise<Mesh | null> => {
+      const container = await loadAssetContainerAsync(url, this.scene);
       if (this.scene.isDisposed) {
         container.dispose();
-        return;
+        return null;
       }
       container.addAllToScene();
-      const mesh = container.meshes.find((m) => m.getTotalVertices() > 0);
-      if (!mesh) return;
-
-      const painted = new PBRMaterial(`${root.name}Painted`, this.scene);
-      painted.albedoTexture = new Texture(texture, this.scene, { invertY: false });
-      painted.metallic = 0;
-      painted.roughness = 0.95;
-      painted.maxSimultaneousLights = 2;
-      mesh.material = painted;
-      mesh.receiveShadows = false;
-
-      const size = mesh.getBoundingInfo().boundingBox.extendSize.scale(2);
-      const across = doorway.width / size.x;
-      mesh.scaling = lyingDown
-        ? new Vector3(across, across, across)
-        : new Vector3(across, doorway.height / size.y, across);
-      mesh.rotationQuaternion = null; // glTF nodes carry a quaternion, which would ignore the rotation below
-      mesh.rotation.y = Math.PI / 2; // the carved face turns to meet Bobby
-      mesh.position = new Vector3(cx, (size.y * (lyingDown ? across : doorway.height / size.y)) / 2, cz);
-      mesh.parent = root;
-      this.shadow.addShadowCaster(mesh as Mesh);
+      const mesh = container.meshes.find((m) => m.getTotalVertices() > 0) as Mesh | undefined;
+      if (!mesh) return null;
+      mesh.parent = null; // the glTF __root__ is scaled -1 on X and would mirror the placement
+      mesh.rotationQuaternion = null;
+      for (const material of container.materials) {
+        if (material instanceof PBRMaterial) material.maxSimultaneousLights = 2;
+      }
+      return mesh;
     };
 
-    await Promise.all([
-      place(RUBBLE_INTACT_URL, RUBBLE_INTACT_TEXTURE, this.obstacleIntact, false),
-      place(RUBBLE_BROKEN_URL, RUBBLE_BROKEN_TEXTURE, this.obstacleBroken, true),
-    ]);
+    const [intact, broken] = await Promise.all([take(RUBBLE_INTACT_URL), take(RUBBLE_BROKEN_URL)]);
+
+    if (intact) {
+      const size = intact.getBoundingInfo().boundingBox.extendSize.scale(2);
+      // The heap is widest along one horizontal axis; that axis has to lie across the doorway, or the
+      // pile blocks the passage edge-on and Bobby can see straight past it.
+      // The generation was made from a straight-on reference, so its detail is on one face and its
+      // back is the flat cut where the crop ended. That face has to meet Bobby, who comes from -X.
+      const acrossIsX = size.x >= size.z;
+      intact.rotation.y = acrossIsX ? -Math.PI / 2 : Math.PI;
+      const across = Math.max(size.x, size.z);
+      // filling the doorway means covering its width and its height; the depth can overhang
+      const fit = Math.max(doorway.width / across, (doorway.height * 1.08) / size.y);
+      intact.scaling.setAll(fit);
+      intact.position = new Vector3(cx, (size.y * fit) / 2, cz);
+      intact.parent = this.obstacleIntact;
+      intact.receiveShadows = true;
+      this.shadow.addShadowCaster(intact);
+    }
+
+    if (broken) {
+      const size = broken.getBoundingInfo().boundingBox.extendSize.scale(2);
+      const heapWidth = 1.5; // enough to read as fallen masonry rather than gravel
+      const fit = heapWidth / Math.max(size.x, size.z);
+      const jambs: [number, number][] = [
+        [cz - doorway.width / 2 + heapWidth / 2, 0.4],
+        [cz + doorway.width / 2 - heapWidth / 2, -2.1],
+      ];
+      jambs.forEach(([z, turn], i) => {
+        const heap = i === 0 ? broken : (broken.createInstance(`rubbleHeap${i}`) as unknown as Mesh);
+        heap.scaling.setAll(fit);
+        heap.rotationQuaternion = null;
+        heap.rotation.y = turn; // the two heaps are the same stones seen from different sides
+        heap.position = new Vector3(cx, 0, z);
+        heap.parent = this.obstacleBroken;
+        this.shadow.addShadowCaster(heap);
+      });
+    }
   }
 
   /** Decoration with no collider: the arch framing the portico mouth and the statues along the room. */
   private async loadDecor(): Promise<void> {
-    const paint = (name: string, texture: string): PBRMaterial => {
-      const mat = new PBRMaterial(name, this.scene);
-      mat.albedoTexture = new Texture(texture, this.scene, { invertY: false });
-      mat.metallic = 0;
-      mat.roughness = 0.92;
-      mat.maxSimultaneousLights = 2;
-      return mat;
-    };
-
     const [archBox, statueBox] = await Promise.all([
       loadAssetContainerAsync(ARCH_URL, this.scene, { pluginOptions: { gltf: { skipMaterials: true } } }),
       loadAssetContainerAsync(STATUE_URL, this.scene, { pluginOptions: { gltf: { skipMaterials: true } } }),
@@ -377,7 +434,7 @@ export class SceneView {
     const arch = archBox.meshes.find((m) => m.getTotalVertices() > 0);
     if (arch) {
       arch.parent = null;
-      arch.material = paint("archPainted", ARCH_TEXTURE);
+      arch.material = this.stoneMaterial;
       arch.receiveShadows = false;
       const size = arch.getBoundingInfo().boundingBox.extendSize.scale(2);
       const MOUTH = 3; // the corridor opening the portico wall leaves
@@ -391,7 +448,7 @@ export class SceneView {
     const statue = statueBox.meshes.find((m) => m.getTotalVertices() > 0);
     if (statue) {
       statue.parent = null;
-      statue.material = paint("statuePainted", STATUE_TEXTURE);
+      statue.material = this.stoneMaterial;
       statue.receiveShadows = false;
       const size = statue.getBoundingInfo().boundingBox.extendSize.scale(2);
       const up = 2.2 / size.y;
@@ -422,12 +479,7 @@ export class SceneView {
     source.parent = null;
     source.rotationQuaternion = null;
 
-    const painted = new PBRMaterial("columnPainted", this.scene);
-    painted.albedoTexture = new Texture(COLUMN_TEXTURE_URL, this.scene, { invertY: false });
-    painted.metallic = 0;
-    painted.roughness = 0.9;
-    painted.maxSimultaneousLights = 2;
-    source.material = painted;
+    source.material = this.stoneMaterial;
     source.receiveShadows = false;
 
     const size = source.getBoundingInfo().boundingBox.extendSize.scale(2);

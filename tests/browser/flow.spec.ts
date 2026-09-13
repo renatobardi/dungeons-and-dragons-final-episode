@@ -83,6 +83,12 @@ test.describe("cenotaph entrance flow", () => {
   });
 
   test("P08: complete the route and restart three times without duplicates or errors", async ({ page }) => {
+    // Three restarts mean building the whole cinematic scene four times: the vault, seven flames, the
+    // generated arms and rubble, and the procedural stone maps. That is ~18 s on a real GPU and around
+    // four times that on the runner's software renderer, so the suite's default minute is not enough
+    // budget for this one test. Nothing here is waiting on a defect — every other step has its own
+    // assertion timeout and would fail on its own if the game stopped responding.
+    test.setTimeout(240_000);
     await expect(page.locator("body")).toHaveAttribute("data-state", "ready", { timeout: 30_000 });
     for (let i = 0; i < 3; i++) {
       await page.click("#play");
@@ -93,7 +99,8 @@ test.describe("cenotaph entrance flow", () => {
       expect(await page.evaluate(() => window.__game!.snapshot().obstacle)).toBe("broken");
 
       await page.click("#restart");
-      await expect(page.locator("body")).toHaveAttribute("data-state", "ready");
+      // a restart throws the scene away and builds it again, which the software renderer does slowly
+      await expect(page.locator("body")).toHaveAttribute("data-state", "ready", { timeout: 30_000 });
       const s = await page.evaluate(() => window.__game!.snapshot());
       expect(s.obstacle).toBe("intact");
       expect(s.alertFired).toBe(false);
@@ -237,5 +244,50 @@ test.describe("cenotaph entrance flow", () => {
     await page.waitForTimeout(100);
     expect(await page.evaluate(() => window.__game!.snapshot().obstacle)).toBe("intact");
     expect(errors).toEqual([]);
+  });
+});
+
+test.describe("required assets", () => {
+  const errors: string[] = [];
+
+  test.beforeEach(({ page }) => {
+    errors.length = 0;
+    page.on("pageerror", (e) => errors.push(e.message));
+  });
+
+  /**
+   * The spec is explicit that a missing model must reach the error screen rather than let the game
+   * start without Bobby's equipment. Blocking one required file is the only honest way to prove it.
+   */
+  test("a required model that fails to load shows the error screen, not the start screen", async ({ page }) => {
+    await page.route("**/models/bobby/right-arm-club.glb", (route) => route.abort());
+    await page.goto("/?debug&nolock");
+
+    await expect(page.locator("body")).toHaveAttribute("data-state", "load-error", { timeout: 30_000 });
+    await expect(page.locator("#error")).toBeVisible();
+    await expect(page.locator("#error-text")).not.toBeEmpty();
+    await expect(page.locator("#start")).toBeHidden();
+    // the failure is handled, not an unhandled rejection landing in the console
+    expect(errors).toEqual([]);
+  });
+
+  /**
+   * A slow network must not let "ready" appear before the equipment is in the scene — the criterion
+   * the spec calls premature readiness.
+   */
+  test("a slow model does not let the start screen appear before the arms are loaded", async ({ page }) => {
+    let armServed = false;
+    await page.route("**/models/bobby/right-arm-club.glb", async (route) => {
+      await new Promise((resolve) => setTimeout(resolve, 4000));
+      armServed = true;
+      await route.continue();
+    });
+    await page.goto("/?debug&nolock");
+
+    await expect(page.locator("body")).toHaveAttribute("data-state", "loading");
+    expect(armServed).toBe(false);
+
+    await expect(page.locator("body")).toHaveAttribute("data-state", "ready", { timeout: 40_000 });
+    expect(armServed).toBe(true);
   });
 });

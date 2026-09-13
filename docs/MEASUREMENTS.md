@@ -6,7 +6,36 @@ Como reproduzir (Chrome instalado, GPU real, WebGPU):
 pnpm build && (pnpm preview &) && sleep 2 && pnpm measure
 ```
 
-O script abre o Chrome visível, carrega o build com cache frio em rede emulada no preset "Fast 4G" do Chrome (4 Mbps, 20 ms), clica "Jogar", percorre o trecho tirando 7 capturas, grava um vídeo e mede 10 s de caminhada com câmera girando em DPR 2 e 1,5. Saída em `docs/measurements/<data>/` (JSON, PNGs, `run.webm`).
+O script abre o Chrome visível, carrega o build com cache frio em rede emulada no preset "Fast 4G" do Chrome (4 Mbps, 20 ms), clica "Jogar", percorre o trecho tirando 13 capturas, grava um vídeo e mede 10 s de caminhada com câmera girando em DPR 2 e 1,5. Saída em `docs/measurements/<data>/` (JSON, PNGs, `run.webm`).
+
+## 13/09/2026 — revisão cinematográfica completa, mesma máquina
+
+Chrome 153.0.8010.36 · backend **WebGPU** · viewport 1512×945 CSS px · build de produção. Cena com toda a
+arte da revisão: abóbada de nervuras a 17 m, claristório de 12 janelas, 7 tochas com chama de partículas
+(4 com luz), braços e tacape de Bobby, monte de escombros, saída em arco com poeira, Uni rigada.
+
+| DPR | Resolução de renderização | Quadro médio | fps | p95 | Pior quadro | Quadros > 33 ms |
+| --- | --- | --- | --- | --- | --- | --- |
+| 2 | 3024×1890 | 8,3 ms | 120 | 10,0 ms | 12,1 ms | 0 |
+| 1,5 | 2268×1417 | 8,3 ms | 120 | 9,9 ms | 13,0 ms | 0 |
+
+Carregamento a frio no preset "Fast 4G" (4 Mbps, 20 ms): **7,3 MB transferidos, 15,4 s até a tela
+inicial**. Antes da revisão, na mesma medição: 4,9 MB e 10,2 s. O crescimento é a arte nova — dois braços,
+dois montes de escombros e os mapas PBR que vêm com eles, já decimados a 1K e a dezenas de milhares de
+triângulos.
+
+**Leitura, com a limitação dita.** Os 8,3 ms são o intervalo exato de um display de 120 Hz: o número está
+preso ao vsync e prova que o jogo acompanha 120 Hz, mas **não mede a folga**. O que sustenta a conclusão
+é o pior quadro — 12,1 ms, bem abaixo dos 16,7 ms de 60 fps — e a ausência de qualquer quadro acima de
+33 ms em 1200 amostras por resolução. O alvo de 60 fps está atendido com folga e **não foi preciso
+recorrer à concessão de 30 fps estáveis**. Memória não foi observada: o `SystemInfo` do Chrome não
+devolveu dados de GPU nesta execução.
+
+**Limite de luzes descoberto na medição.** A cena satura em **sete luzes** no WebGPU desta máquina — o
+feixe, o céu, a saída e quatro tochas. A oitava não avisa: renderiza o quadro inteiro preto. Por isso três
+das sete tochas queimam sem luz própria. Está no código, em `LIT_TORCHES`.
+
+Evidência e comparação com as sete imagens aprovadas: [VISUAL-COMPARISON-CINEMATIC.md](VISUAL-COMPARISON-CINEMATIC.md).
 
 ## 12/09/2026 — MacBook Pro M5 Pro, 24 GB, tela 3024×1964, macOS 26.5.2
 

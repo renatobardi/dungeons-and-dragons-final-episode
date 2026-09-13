@@ -1,5 +1,6 @@
 import { DynamicTexture } from "@babylonjs/core/Materials/Textures/dynamicTexture";
 import type { Scene } from "@babylonjs/core/scene";
+import { heightToNormalRgb } from "./normal-map";
 
 /**
  * Hand-painted looking textures generated at runtime with a canvas: layered brush dabs over a base tone.
@@ -116,3 +117,122 @@ export const RUBBLE: PaintSpec = {
   cracks: 30,
   seed: 37,
 };
+
+/**
+ * The same stone, drawn as a height field instead of a colour: mortar courses sink, each block sits at
+ * its own level, dabs become the pitting of the face and cracks cut grooves. Values are 0..1.
+ */
+function heightField(size: number, spec: PaintSpec): Float32Array {
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext("2d", { willReadFrequently: true }) as CanvasRenderingContext2D;
+  const rnd = mulberry32(spec.seed ^ 0x5eed);
+
+  ctx.fillStyle = "rgb(150,150,150)";
+  ctx.fillRect(0, 0, size, size);
+
+  if (spec.blocks) courseHeights(ctx, size, spec.blocks, rnd);
+  pitHeights(ctx, size, spec, rnd);
+  ctx.globalAlpha = 1;
+  if (spec.cracks) crackGrooves(ctx, size, spec.cracks, rnd);
+
+  const data = ctx.getImageData(0, 0, size, size).data;
+  const field = new Float32Array(size * size);
+  for (let i = 0; i < field.length; i++) field[i] = data[i * 4]! / 255;
+  return field;
+}
+
+/** Each block laid a little proud or a little sunk, the way a real course never is flush. */
+function courseHeights(
+  ctx: CanvasRenderingContext2D,
+  size: number,
+  blocks: NonNullable<PaintSpec["blocks"]>,
+  rnd: () => number,
+): void {
+  const { w, h, gap } = blocks;
+  let row = 0;
+  for (let y = 0; y < size; y += h) {
+    const offset = row % 2 === 0 ? 0 : w / 2;
+    for (let x = -w; x < size + w; x += w) {
+      const level = 150 + (rnd() - 0.4) * 70;
+      ctx.fillStyle = `rgb(${level},${level},${level})`;
+      ctx.fillRect(x + offset + gap, y + gap, w - gap * 2, h - gap * 2);
+    }
+    row++;
+  }
+  // the mortar itself is the recess between them, left at the dark base
+}
+
+/** Pitting and erosion over the faces. */
+function pitHeights(ctx: CanvasRenderingContext2D, size: number, spec: PaintSpec, rnd: () => number): void {
+  for (let i = 0; i < spec.dabCount; i++) {
+    const w = spec.dabSize[0] + rnd() * (spec.dabSize[1] - spec.dabSize[0]);
+    const shade = rnd() < 0.5 ? 0 : 255;
+    ctx.save();
+    ctx.translate(rnd() * size, rnd() * size);
+    ctx.rotate(rnd() * Math.PI);
+    ctx.globalAlpha = 0.05 + rnd() * 0.12;
+    ctx.fillStyle = `rgb(${shade},${shade},${shade})`;
+    ctx.beginPath();
+    ctx.ellipse(0, 0, w / 2, (w * (0.35 + rnd() * 0.5)) / 2, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+}
+
+/** Cracks, cut as grooves rather than drawn as lines. */
+function crackGrooves(ctx: CanvasRenderingContext2D, size: number, count: number, rnd: () => number): void {
+  ctx.strokeStyle = "rgb(40,40,40)";
+  for (let i = 0; i < count; i++) {
+    let x = rnd() * size;
+    let y = rnd() * size;
+    ctx.lineWidth = 1 + rnd() * 2.5;
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    const segs = 6 + Math.floor(rnd() * 10);
+    for (let s = 0; s < segs; s++) {
+      x += (rnd() - 0.5) * 30;
+      y += (rnd() - 0.5) * 30;
+      ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+  }
+}
+
+export interface StoneSurface {
+  albedo: DynamicTexture;
+  normal: DynamicTexture;
+  /** Metallic-roughness packing: green is roughness, blue is metallic, red is unused. */
+  roughness: DynamicTexture;
+}
+
+/**
+ * Albedo, relief and roughness for one stone, all derived from the same procedural pass so the three
+ * maps agree: what sinks in the normal map is what darkens in the colour and what stays damp underfoot.
+ * `relief` is how hard the bump is carved; the floor takes less than a wall so the tiling stays calm.
+ */
+export function stoneSurface(scene: Scene, name: string, size: number, spec: PaintSpec, relief = 14): StoneSurface {
+  const albedo = paintedTexture(scene, `${name}Albedo`, size, spec);
+  const field = heightField(size, spec);
+
+  const normal = new DynamicTexture(`${name}Normal`, size, scene, false);
+  const nCtx = normal.getContext() as CanvasRenderingContext2D;
+  const nImage = nCtx.createImageData(size, size);
+  nImage.data.set(heightToNormalRgb(field, size, relief));
+  nCtx.putImageData(nImage, 0, 0);
+  normal.update(false);
+
+  // deep stone holds water and dirt and answers light softly; the proud faces are worn smoother
+  const roughness = new DynamicTexture(`${name}Rough`, size, scene, false);
+  const rCtx = roughness.getContext() as CanvasRenderingContext2D;
+  const rImage = rCtx.createImageData(size, size);
+  for (let i = 0; i < field.length; i++) {
+    rImage.data[i * 4 + 1] = (0.98 - field[i]! * 0.28) * 255;
+    rImage.data[i * 4 + 3] = 255;
+  }
+  rCtx.putImageData(rImage, 0, 0);
+  roughness.update(false);
+
+  return { albedo, normal, roughness };
+}

@@ -119,15 +119,25 @@ Saldo depois: 2817. O tacape precisou de duas rodadas: a primeira descrição pr
 
 | Identificador | Origem | Licença/permissão | Formato | Tamanho | Situação |
 | --- | --- | --- | --- | --- | --- |
-| `bobby-club` | Gerado no Meshy a partir de imagem própria, guiada pela figura de ação oficial | Conta Meshy Premium do produtor; saída própria | `public/models/bobby/club.glb` + textura | 164 KB + textura | No jogo desde 12/09/2026 |
-| `bobby-hand` | Gerado no Meshy a partir de imagem própria | Conta Meshy Premium do produtor; saída própria | `public/models/bobby/hand.glb` + textura | 202 KB + 211 KB | No jogo desde 12/09/2026 |
+| `bobby-right-arm-club` | Gerado no Meshy (`image-to-3d`, meshy-7) a partir de `assets/refs/bobby-right-arm-club.png`, recorte da imagem aprovada `docs/art-direction/cinematic-v1/02-bobby-arms-club.png` | Conta Meshy Premium do produtor; saída própria, sobre conceito de IA gerado pelo próprio projeto | `public/models/bobby/right-arm-club.glb` (mapas PBR embutidos) | 1,15 MB | No jogo desde 13/09/2026; substitui `bobby-club` e `bobby-hand` |
+| `bobby-left-arm` | Gerado no Meshy (`image-to-3d`, meshy-7) a partir de `assets/refs/bobby-left-arm.png`, recorte da mesma imagem aprovada | Conta Meshy Premium do produtor; saída própria, sobre conceito de IA gerado pelo próprio projeto | `public/models/bobby/left-arm.glb` (mapas PBR embutidos) | 750 KB | No jogo desde 13/09/2026 |
+| ~~`bobby-club`~~ | — | — | removido | — | Fora do jogo desde 13/09/2026: a mão e o tacape separados deixavam o punho flutuando e a empunhadura desalinhada |
+| ~~`bobby-hand`~~ | — | — | removido | — | Fora do jogo desde 13/09/2026, pelo mesmo motivo |
 | `cenotaph-arch` | Gerado no Meshy a partir de imagem própria | Conta Meshy Premium do produtor; saída própria | `public/models/cenotaph/arch.glb` + textura | 193 KB + 105 KB | No jogo desde 12/09/2026 |
 | `cenotaph-statue` | Gerado no Meshy a partir de imagem própria | Conta Meshy Premium do produtor; saída própria | `public/models/cenotaph/statue.glb` + textura | 175 KB + 75 KB | No jogo desde 12/09/2026 |
-| `cenotaph-rubble-intact` | Gerado no Meshy a partir de imagem própria | Conta Meshy Premium do produtor; saída própria | `public/models/cenotaph/rubble-intact.glb` + textura | 199 KB + 262 KB | No jogo desde 12/09/2026 |
-| `cenotaph-rubble-broken` | Gerado no Meshy a partir de imagem própria | Conta Meshy Premium do produtor; saída própria | `public/models/cenotaph/rubble-broken.glb` + textura | 182 KB + 287 KB | No jogo desde 12/09/2026 |
+| `cenotaph-rubble-intact` | Regerado no Meshy (`image-to-3d`, meshy-7) a partir de `assets/refs/rubble-intact.png`, recorte da imagem aprovada `06-blocked-passage.png` | Conta Meshy Premium do produtor; saída própria, sobre conceito de IA do próprio projeto | `public/models/cenotaph/rubble-intact.glb` (mapas PBR embutidos) | 1,30 MB | No jogo desde 13/09/2026; substitui o relevo raso de 12/09 |
+| `cenotaph-rubble-broken` | Regerado no Meshy (`image-to-3d`, meshy-7) a partir de `assets/refs/rubble-broken.png`, recorte da imagem aprovada `07-open-passage-exit.png` | Conta Meshy Premium do produtor; saída própria, sobre conceito de IA do próprio projeto | `public/models/cenotaph/rubble-broken.glb` (mapas PBR embutidos) | 1,19 MB | No jogo desde 13/09/2026; colocado como dois montes nas ombreiras, com o centro livre |
 | `cenotaph-column` | Gerado no Meshy a partir de imagem própria (`text-to-image`), guiada pelos quadros `stone-hall-door-columns` e `stone-column-light` | Conta Meshy Premium do produtor; saída própria | `public/models/cenotaph/column.glb` + `column-base-color.jpg` | 184 KB + 51 KB | No jogo desde 12/09/2026; aprovação pendente |
 | `uni` | Gerado no Meshy a partir de `uni-fullbody-walk-side-s01e01-t0250s.jpg` (quadro do desenho, referência interna) | Conta Meshy Premium do produtor; saída própria. A referência é material protegido de terceiros, usada só como entrada de estilo | `assets/models/uni/uni.glb` (fora de `public/`: é insumo de build, não asset servido) + `public/models/uni/uni-base-color.jpg` | 1,24 MB + 277 KB | Fonte do rig desde 12/09/2026 (não vai mais para a cena); aparência aprovada por escrito pelo produtor em 12/09/2026 |
 | `uni-rigged` | Derivado de `uni` por `scripts/rig-uni.py` (Blender headless): esqueleto quadrúpede, pesos calculados e os clipes `idle`, `walk` e `alert` | Mesma origem e permissão de `uni`; o esqueleto e as animações são obra própria | `public/models/uni/uni-rigged.glb` + `uni-base-color.jpg` | 1,63 MB + 277 KB | No jogo desde 12/09/2026; refazer com `pnpm rig` (precisa do Blender) |
+
+### Originais editáveis
+
+As saídas cruas do Meshy (~60 MB cada, 1,9 M triângulos, mapas 2K) ficam fora do git. O acabamento é
+reprodutível: `docs/MESHY-LEDGER.md` guarda o task id de cada geração, e
+`scripts/finish-model.py` refaz o recurso do jogo a partir do cru com
+
+    pnpm blender -- scripts/finish-model.py -- <cru.glb> <saida.glb> <triangulos> <textura>
 
 ## Pendente
 
