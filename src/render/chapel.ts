@@ -96,10 +96,26 @@ export function buildChapel(scene: Scene, room: Box, stoneMaterial: Material): C
     const step = length / bays;
     for (let b = 0; b <= bays; b++) {
       const centre = side.span[0] + step * b;
-      const pierWidth = b === 0 || b === bays ? step - WINDOW.width : step - WINDOW.width;
+      const pierWidth = step - WINDOW.width;
       if (pierWidth <= 0) continue;
       const offset = b === 0 ? pierWidth / 2 : b === bays ? -pierWidth / 2 : 0;
-      slab("mullion", WINDOW.sill, WINDOW.head, b === 0 || b === bays ? pierWidth / 1 : pierWidth, centre + offset);
+      slab("mullion", WINDOW.sill, WINDOW.head, pierWidth, centre + offset);
+    }
+
+    // The openings need daylight in them. Left empty they are holes onto the scene's clear colour —
+    // dark blue-black panels high on the wall, which is the opposite of the source the shafts claim.
+    for (let b = 0; b < bays; b++) {
+      const centre = side.span[0] + step * (b + 0.5);
+      const pane = MeshBuilder.CreatePlane(`clerestory${i}-${b}`, { width: WINDOW.width, height: WINDOW.head - WINDOW.sill }, scene);
+      pane.material = daylightMaterial(scene);
+      pane.isPickable = false;
+      pane.parent = root;
+      pane.position = side.axis === "z"
+        ? new Vector3(centre, (WINDOW.sill + WINDOW.head) / 2, side.at)
+        : new Vector3(side.at, (WINDOW.sill + WINDOW.head) / 2, centre);
+      // only the plane the pane lies in matters; a pane of light has no wrong side, and the material
+      // draws both, so which way round it faces does not
+      pane.rotation.y = side.axis === "z" ? 0 : Math.PI / 2;
     }
   }
 
@@ -459,4 +475,30 @@ function moteTexture(scene: Scene): DynamicTexture {
   ctx.fillRect(0, 0, size, size);
   tex.update(false);
   return tex;
+}
+
+
+let daylight: StandardMaterial | null = null;
+
+/** Cold outside light seen through a clerestory: brightest at the head, dimmer towards the sill. */
+function daylightMaterial(scene: Scene): StandardMaterial {
+  if (daylight && daylight.getScene() === scene) return daylight;
+  const size = 64;
+  const tex = new DynamicTexture("daylight", size, scene, false);
+  const ctx = tex.getContext() as CanvasRenderingContext2D;
+  const g = ctx.createLinearGradient(0, 0, 0, size);
+  g.addColorStop(0, "rgb(222,232,248)");
+  g.addColorStop(0.65, "rgb(158,176,204)");
+  g.addColorStop(1, "rgb(96,110,134)");
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, size, size);
+  tex.update(false);
+
+  const mat = new StandardMaterial("daylightMat", scene);
+  mat.emissiveTexture = tex;
+  mat.diffuseColor = Color3.Black();
+  mat.disableLighting = true;
+  mat.backFaceCulling = false;
+  daylight = mat;
+  return mat;
 }
