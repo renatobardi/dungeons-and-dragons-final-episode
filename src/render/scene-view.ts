@@ -27,7 +27,7 @@ import type { LevelDefinition } from "../sim/level";
 import type { Box } from "../sim/geometry";
 import type { SimEvent, Snapshot } from "../sim/simulation";
 import { stoneSurface, RUBBLE, STONE_FLOOR, STONE_WALL } from "./textures";
-import { buildChapel, TILE, VAULT_CROWN } from "./chapel";
+import { buildChapel, buildExit, TILE, VAULT_CROWN } from "./chapel";
 import { boxFaceUvs } from "./uv";
 import { buildTorch, flicker, type Torch } from "./torch";
 import { UniView } from "./uni-view";
@@ -181,20 +181,17 @@ export class SceneView {
     this.obstacleBroken = new TransformNode("obstacleBroken", scene);
     this.obstacleBroken.setEnabled(false);
 
-    // exit: a warm glow beyond the doorway
-    const exitMat = new StandardMaterial("exitMat", scene);
-    exitMat.emissiveColor = new Color3(0.62, 0.5, 0.28);
-    exitMat.disableLighting = true;
-    exitMat.backFaceCulling = false;
+    // exit: a lit pointed arch at the end of the antechamber, not a pane of white
+    const exit = buildExit(scene, level.exitZone, wallMat);
+    for (const m of exit.stone) {
+      m.receiveShadows = true;
+      this.shadow.addShadowCaster(m);
+    }
     const e = level.exitZone;
-    const exitPlane = MeshBuilder.CreatePlane("exitGlow", { width: 2.6, height: 3.2 }, scene);
-    exitPlane.position = new Vector3(e.maxX - 0.05, 1.7, (e.minZ + e.maxZ) / 2);
-    exitPlane.rotation.y = -Math.PI / 2;
-    exitPlane.material = exitMat;
-    const exitLight = new PointLight("exitLight", new Vector3(e.maxX - 0.6, 1.8, (e.minZ + e.maxZ) / 2), scene);
-    exitLight.diffuse = new Color3(1, 0.85, 0.5);
-    exitLight.intensity = 12;
-    exitLight.range = 8;
+    const exitLight = new PointLight("exitLight", new Vector3(e.maxX - 0.9, 1.9, (e.minZ + e.maxZ) / 2), scene);
+    exitLight.diffuse = new Color3(1, 0.82, 0.48);
+    exitLight.intensity = 14;
+    exitLight.range = 9;
 
     this.dust = this.buildDust(level.obstacle.collider);
 

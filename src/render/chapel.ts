@@ -9,9 +9,11 @@ import type { Material } from "@babylonjs/core/Materials/material";
 import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial";
 import { VertexData } from "@babylonjs/core/Meshes/mesh.vertexData";
 import { DynamicTexture } from "@babylonjs/core/Materials/Textures/dynamicTexture";
+import { Color4 } from "@babylonjs/core/Maths/math.color";
+import { ParticleSystem } from "@babylonjs/core/Particles/particleSystem";
 
 import type { Box } from "../sim/geometry";
-import { groinHeight, ribCurve, type BayProfile } from "./vault";
+import { archProfile, groinHeight, ribCurve, type BayProfile } from "./vault";
 import { boxFaceUvs } from "./uv";
 
 /**
@@ -303,5 +305,158 @@ function shaftFalloff(scene: Scene): DynamicTexture {
   ctx.putImageData(image, 0, 0);
   tex.update(false);
   tex.getAlphaFromRGB = true;
+  return tex;
+}
+
+export interface ExitParts {
+  /** The lit opening itself, and the stone that frames it. */
+  glow: Mesh;
+  stone: Mesh[];
+  /** Dust hanging in the light, so the beam has something in it. */
+  motes: ParticleSystem;
+}
+
+/**
+ * The way out.
+ *
+ * The MVP drew a flat emissive rectangle, which the spec rejects by name: a blown white pane reads as
+ * a hole in the render, not as daylight at the end of a tomb. What sells it is the shape and what is
+ * around it — a pointed arch cut in a stone reveal, voussoirs over it, a run of transverse arches
+ * receding towards it, and the light falling off within the opening instead of clipping flat.
+ */
+export function buildExit(scene: Scene, zone: Box, stoneMaterial: Material): ExitParts {
+  const stone: Mesh[] = [];
+  const cz = (zone.minZ + zone.maxZ) / 2;
+  const width = 2.4;
+  const springing = 1.9;
+  const rise = 1.5;
+  const face = zone.maxX - 0.08;
+
+  const piece = (mesh: Mesh): Mesh => {
+    mesh.material = stoneMaterial;
+    stone.push(mesh);
+    return mesh;
+  };
+
+  // --- the opening -----------------------------------------------------------
+  const segments = 28;
+  const positions: number[] = [];
+  const uvs: number[] = [];
+  const indices: number[] = [];
+  for (let i = 0; i <= segments; i++) {
+    const t = -1 + (2 * i) / segments;
+    const head = springing + rise * archProfile(t);
+    positions.push(face, 0, cz + (t * width) / 2, face, head, cz + (t * width) / 2);
+    uvs.push((t + 1) / 2, 0, (t + 1) / 2, 1);
+    if (i < segments) {
+      const a = i * 2;
+      indices.push(a, a + 1, a + 2, a + 1, a + 3, a + 2);
+    }
+  }
+  const glow = new Mesh("exitGlow", scene);
+  const data = new VertexData();
+  data.positions = positions;
+  data.indices = indices;
+  data.uvs = uvs;
+  data.normals = positions.map((_, i) => (i % 3 === 0 ? -1 : 0));
+  data.applyToMesh(glow);
+
+  const glowMat = new StandardMaterial("exitMat", scene);
+  glowMat.emissiveTexture = exitLightTexture(scene);
+  glowMat.diffuseColor = Color3.Black();
+  glowMat.disableLighting = true;
+  glowMat.backFaceCulling = false;
+  glow.material = glowMat;
+
+  // --- the reveal the opening is cut in --------------------------------------
+  const jambDepth = 0.5;
+  for (const side of [-1, 1]) {
+    const jamb = MeshBuilder.CreateBox("exitJamb", { width: jambDepth, height: springing + rise, depth: 0.45 }, scene);
+    jamb.position = new Vector3(face - jambDepth / 2, (springing + rise) / 2, cz + side * (width / 2 + 0.2));
+    piece(jamb);
+  }
+  const voussoirs = 9;
+  for (let i = 0; i < voussoirs; i++) {
+    const t = -1 + (2 * (i + 0.5)) / voussoirs;
+    const head = springing + rise * archProfile(t);
+    const stoneBlock = MeshBuilder.CreateBox("exitVoussoir", { width: jambDepth, height: 0.42, depth: (width / voussoirs) * 1.35 }, scene);
+    stoneBlock.position = new Vector3(face - jambDepth / 2, head + 0.16, cz + (t * width) / 2);
+    stoneBlock.rotation.x = -Math.atan2(rise * (archProfile(t + 0.05) - archProfile(t - 0.05)), (0.1 * width) / 2);
+    piece(stoneBlock);
+  }
+
+  // --- transverse arches receding towards it ---------------------------------
+  // Depth is what a lit rectangle has none of: three ribs between Bobby and the light give the eye
+  // something to measure the distance against.
+  // spread back down the antechamber, not bunched against the arch, where they measure nothing
+  const RIBS = 4;
+  for (let i = 1; i <= RIBS; i++) {
+    const x = zone.minX - 2 + ((zone.maxX - 0.6 - (zone.minX - 2)) * i) / (RIBS + 1);
+    const path: Vector3[] = [];
+    for (let j = 0; j <= 14; j++) {
+      const t = -1 + (2 * j) / 14;
+      path.push(new Vector3(x, springing * 0.9 + rise * 1.1 * archProfile(t), cz + (t * (width + 0.5)) / 2));
+    }
+    piece(MeshBuilder.CreateTube(`exitRib${i}`, { path, radius: 0.13, tessellation: 8, cap: Mesh.CAP_ALL }, scene));
+  }
+
+  // --- dust in the beam ------------------------------------------------------
+  const motes = new ParticleSystem("exitMotes", 120, scene);
+  motes.particleTexture = moteTexture(scene);
+  motes.blendMode = ParticleSystem.BLENDMODE_ADD;
+  motes.emitter = new Vector3((zone.minX + zone.maxX) / 2, 1.4, cz);
+  motes.minEmitBox = new Vector3(-1.6, -1.2, -1.1);
+  motes.maxEmitBox = new Vector3(1.6, 1.4, 1.1);
+  motes.color1 = new Color4(1, 0.88, 0.6, 0.35);
+  motes.color2 = new Color4(1, 0.78, 0.45, 0.2);
+  motes.colorDead = new Color4(1, 0.8, 0.5, 0);
+  motes.minSize = 0.012;
+  motes.maxSize = 0.045;
+  motes.minLifeTime = 2.5;
+  motes.maxLifeTime = 6;
+  motes.emitRate = 22;
+  motes.direction1 = new Vector3(-0.05, 0.04, -0.05);
+  motes.direction2 = new Vector3(0.05, 0.09, 0.05);
+  motes.minEmitPower = 0.02;
+  motes.maxEmitPower = 0.08;
+  motes.gravity = Vector3.Zero();
+  motes.updateSpeed = 0.01;
+  motes.start();
+
+  return { glow, stone, motes };
+}
+
+/**
+ * What is beyond the doorway: warm, brightest a little above the threshold and falling off into the
+ * jambs. A flat fill is what makes an exit look like a hole punched in the frame.
+ */
+function exitLightTexture(scene: Scene): DynamicTexture {
+  const size = 256;
+  const tex = new DynamicTexture("exitLight", size, scene, true);
+  const ctx = tex.getContext() as CanvasRenderingContext2D;
+  ctx.fillStyle = "rgb(26,17,9)";
+  ctx.fillRect(0, 0, size, size);
+  const g = ctx.createRadialGradient(size / 2, size * 0.62, size * 0.04, size / 2, size * 0.62, size * 0.62);
+  g.addColorStop(0, "rgb(255,244,214)");
+  g.addColorStop(0.28, "rgb(236,190,110)");
+  g.addColorStop(0.6, "rgb(150,104,50)");
+  g.addColorStop(1, "rgb(38,25,14)");
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, size, size);
+  tex.update(false);
+  return tex;
+}
+
+/** A soft mote of dust. */
+function moteTexture(scene: Scene): DynamicTexture {
+  const size = 32;
+  const tex = new DynamicTexture("mote", size, scene, false);
+  const ctx = tex.getContext() as CanvasRenderingContext2D;
+  const g = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
+  g.addColorStop(0, "rgba(255,255,255,1)");
+  g.addColorStop(1, "rgba(255,255,255,0)");
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, size, size);
+  tex.update(false);
   return tex;
 }
