@@ -239,3 +239,48 @@ test.describe("cenotaph entrance flow", () => {
     expect(errors).toEqual([]);
   });
 });
+
+test.describe("required assets", () => {
+  const errors: string[] = [];
+
+  test.beforeEach(({ page }) => {
+    errors.length = 0;
+    page.on("pageerror", (e) => errors.push(e.message));
+  });
+
+  /**
+   * The spec is explicit that a missing model must reach the error screen rather than let the game
+   * start without Bobby's equipment. Blocking one required file is the only honest way to prove it.
+   */
+  test("a required model that fails to load shows the error screen, not the start screen", async ({ page }) => {
+    await page.route("**/models/bobby/right-arm-club.glb", (route) => route.abort());
+    await page.goto("/?debug&nolock");
+
+    await expect(page.locator("body")).toHaveAttribute("data-state", "load-error", { timeout: 30_000 });
+    await expect(page.locator("#error")).toBeVisible();
+    await expect(page.locator("#error-text")).not.toBeEmpty();
+    await expect(page.locator("#start")).toBeHidden();
+    // the failure is handled, not an unhandled rejection landing in the console
+    expect(errors).toEqual([]);
+  });
+
+  /**
+   * A slow network must not let "ready" appear before the equipment is in the scene — the criterion
+   * the spec calls premature readiness.
+   */
+  test("a slow model does not let the start screen appear before the arms are loaded", async ({ page }) => {
+    let armServed = false;
+    await page.route("**/models/bobby/right-arm-club.glb", async (route) => {
+      await new Promise((resolve) => setTimeout(resolve, 4000));
+      armServed = true;
+      await route.continue();
+    });
+    await page.goto("/?debug&nolock");
+
+    await expect(page.locator("body")).toHaveAttribute("data-state", "loading");
+    expect(armServed).toBe(false);
+
+    await expect(page.locator("body")).toHaveAttribute("data-state", "ready", { timeout: 40_000 });
+    expect(armServed).toBe(true);
+  });
+});
