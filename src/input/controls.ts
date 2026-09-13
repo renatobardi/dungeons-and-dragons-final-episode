@@ -31,7 +31,13 @@ export class Controls {
   private readonly onBlur = () => this.blur();
   private readonly onVisibility = () => document.hidden && this.blur();
 
-  constructor(private readonly canvas: HTMLCanvasElement, private readonly host: ControlsHost) {
+  constructor(
+    private readonly canvas: HTMLCanvasElement,
+    private readonly host: ControlsHost,
+    /** Browser automation reports its virtual cursor as huge look deltas once the pointer is
+     * captured, so the browser tests run with the capture off and drive the view through commands. */
+    private readonly options: { capturePointer?: boolean } = {},
+  ) {
     window.addEventListener("keydown", this.onKeyDown);
     window.addEventListener("keyup", this.onKeyUp);
     document.addEventListener("pointermove", this.onMouseMove);
@@ -53,6 +59,7 @@ export class Controls {
 
   /** Safari returns void and reports refusal through `pointerlockerror`; Chrome returns a promise. Both paths end in lockRefused(). */
   private requestLock(): void {
+    if (this.options.capturePointer === false) return;
     try {
       const r = this.canvas.requestPointerLock() as unknown;
       if (r instanceof Promise) r.catch(() => this.host.lockRefused());

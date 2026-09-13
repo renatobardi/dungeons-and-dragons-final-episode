@@ -42,6 +42,24 @@ describe("controls", () => {
     doc.emit("pointerlockchange");
   };
 
+  it("never captures the pointer when capture is off", () => {
+    let requests = 0;
+    // its own canvas: the shared one already has the capturing controls of beforeEach listening
+    const own = Object.assign(target(), { focus: () => {}, requestPointerLock: () => { requests += 1; } });
+    const quiet = new Controls(own as unknown as HTMLCanvasElement, {
+      send: (cmd) => commands.push(cmd),
+      interrupted: () => {},
+      escape: () => {},
+      lockRefused: () => {},
+      lockAcquired: () => {},
+    }, { capturePointer: false });
+    quiet.activate();
+    own.emit("pointerdown", { button: 0 });
+    expect(requests).toBe(0);
+    // the click still reaches the game: the club is what this mode is for
+    expect(commands.some((c) => c.type === "chargeStart")).toBe(true);
+  });
+
   it("drops the jump the browser reports when it captures the mouse", () => {
     lock();
     // Chrome recentres the cursor on lock and reports the whole distance as one move;

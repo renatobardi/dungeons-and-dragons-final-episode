@@ -17,20 +17,6 @@ async function walkToObstacle(page: Page): Promise<void> {
   });
 }
 
-/**
- * Points Bobby back at the obstacle through the hooks. Capturing the pointer makes the browser
- * report the harness's virtual cursor as one large look, which a real player never produces; the
- * click tests below are about the button, not about the aim.
- */
-async function aimAtObstacle(page: Page): Promise<void> {
-  await page.evaluate(() => {
-    const g = window.__game!;
-    const p = g.snapshot().player;
-    g.command({ type: "look", yaw: Math.PI / 2 - p.yaw, pitch: -p.pitch });
-  });
-  await page.waitForFunction(() => Math.abs(window.__game!.snapshot().player.pitch) < 0.05, null, { timeout: 20_000 });
-}
-
 /** Full route through the hooks: break the passage and leave. */
 async function completeRun(page: Page): Promise<void> {
   await walkToObstacle(page);
@@ -55,7 +41,7 @@ test.describe("cenotaph entrance flow", () => {
     errors.length = 0;
     page.on("pageerror", (e) => errors.push(e.message));
     page.on("console", (m) => m.type() === "error" && errors.push(m.text()));
-    await page.goto("/?debug");
+    await page.goto("/?debug&nolock");
   });
 
   test("P01: shows loading, then the start screen; play starts only on click", async ({ page }) => {
@@ -174,7 +160,6 @@ test.describe("cenotaph entrance flow", () => {
     await expect(page.locator("body")).toHaveAttribute("data-state", "ready", { timeout: 30_000 });
     await page.click("#play");
     await walkToObstacle(page);
-    await aimAtObstacle(page);
     await page.mouse.down();
     await page.mouse.up();
     await page.waitForTimeout(200);
@@ -187,13 +172,8 @@ test.describe("cenotaph entrance flow", () => {
     await expect(page.locator("#charge")).toHaveClass(/visible/);
     await page.waitForFunction(() => window.__game!.snapshot().charge.ready, null, { timeout: 20_000 });
     await expect(page.locator("#charge")).toHaveClass(/ready/);
-    // The press itself carries another virtual-cursor look, so the aim is restored right before the
-    // strike leaves: the club swings along the view at the moment the button is released.
-    await aimAtObstacle(page);
     await page.mouse.up();
     await page.waitForFunction(() => window.__game!.snapshot().obstacle === "broken", null, { timeout: 20_000 });
-    // The release carries a look of its own, so the corridor is lined up again before walking it.
-    await aimAtObstacle(page);
     await page.keyboard.down("KeyW");
     await page.waitForFunction(() => window.__game!.snapshot().player.x > 21.2, null, { timeout: 20_000 });
     await page.keyboard.up("KeyW");
@@ -244,7 +224,6 @@ test.describe("cenotaph entrance flow", () => {
     await expect(page.locator("body")).toHaveAttribute("data-state", "ready", { timeout: 30_000 });
     await page.click("#play");
     await walkToObstacle(page);
-    await aimAtObstacle(page);
     await page.mouse.down();
     await page.waitForTimeout(300);
     await page.keyboard.press("Escape");
