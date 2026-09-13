@@ -90,6 +90,12 @@ export class Controls {
 
   private mouseMove(e: PointerEvent): void {
     if (!this.active || document.pointerLockElement !== this.canvas) return;
+    // The browser recentres the cursor when it captures it and reports that whole jump as the
+    // first movement; obeying it throws the view at the ceiling right after the click.
+    if (this.justLocked) {
+      this.justLocked = false;
+      return;
+    }
     const k = LOOK_BASE * this.sensitivity;
     this.host.send({ type: "look", yaw: e.movementX * k, pitch: -e.movementY * k });
   }
@@ -108,10 +114,14 @@ export class Controls {
   private lockChange(): void {
     const locked = document.pointerLockElement === this.canvas;
     if (this.active && !locked && this.hadLock) this.host.interrupted();
-    if (locked) this.host.lockAcquired();
+    if (locked) {
+      this.justLocked = true;
+      this.host.lockAcquired();
+    }
     this.hadLock = locked;
   }
   private hadLock = false;
+  private justLocked = false;
 
   private blur(): void {
     if (this.active) this.host.interrupted();
