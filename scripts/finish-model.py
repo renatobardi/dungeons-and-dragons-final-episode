@@ -48,8 +48,12 @@ bpy.ops.mesh.separate(type="LOOSE")
 bpy.ops.object.mode_set(mode="OBJECT")
 
 parts = [o for o in bpy.context.scene.objects if o.type == "MESH"]
-biggest = max(len(p.data.vertices) for p in parts)
-kept = [p for p in parts if len(p.data.vertices) >= biggest * 0.05]
+total = sum(len(p.data.vertices) for p in parts)
+# Only genuine specks go. Measuring against the biggest part instead threw away every strand of a
+# mane — hundreds of small pieces that are the subject, not scraps — and left holes where they had
+# been welded to the body.
+floor = max(8, total * 0.0001)
+kept = [p for p in parts if len(p.data.vertices) >= floor]
 for p in parts:
     if p not in kept:
         print(f"DROP loose part {p.name} with {len(p.data.vertices)} vertices")

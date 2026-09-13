@@ -11,8 +11,8 @@ Registro único e compartilhado dos tickets [#25](https://github.com/renatobardi
 para comprar créditos. O saldo da conta é maior que o teto — o teto é o limite, não o saldo.
 
 - Saldo da conta na abertura do registro (13/09/2026): **2847 créditos**
-- Consumido nesta rodada: **120**
-- Restante do teto: **380**
+- Consumido nesta rodada: **180**
+- Restante do teto: **320**
 
 ## Tabela de preços aplicada
 
@@ -34,15 +34,24 @@ para comprar créditos. O saldo da conta é maior que o teto — o teto é o lim
 | 2 | 13/09/2026 | #25 | Braço esquerdo de Bobby | image-to-3d meshy-7, textura 2k + PBR, a partir de `assets/refs/bobby-left-arm.png` (recorte da imagem aprovada 02) | 30 | 30 | 440 | aprovada — task `01a098b2-f713-751f-b49a-7b9f4655a6cf`, 1,93 M triângulos crus, acabamento no Blender |
 | 3 | 13/09/2026 | #28 | Bloqueio intacto | image-to-3d meshy-7, textura 2k + PBR, a partir de `assets/refs/rubble-intact.png` (recorte da imagem aprovada 06) | 30 | 30 | 410 | aprovada — task `01a098c1-4071-77f3-b519-a4bff56f8813`, 1,64 M triângulos crus |
 | 4 | 13/09/2026 | #28 | Escombros da passagem aberta | image-to-3d meshy-7, textura 2k + PBR, a partir de `assets/refs/rubble-broken.png` (recorte da imagem aprovada 07) | 30 | 30 | 380 | aprovada — task `01a098c1-4fb3-73a7-b7c7-e9507c9ca443`, 1,82 M triângulos crus |
+| 5 | 13/09/2026 | #26 | Uni cinematográfica | image-to-3d meshy-7, textura 2k + PBR, `pose_mode: t-pose`, a partir de `assets/refs/uni-foal.png` (recorte da imagem aprovada 03) | 30 | 30 | 350 | **descartada** — proporção de cavalo adulto, que o critério do #26 proíbe explicitamente; pose com um membro suspenso, ruim para o rig |
+| 6 | 13/09/2026 | #26 | Uni cinematográfica, segunda tentativa | image-to-3d meshy-7, textura 2k + PBR, a partir de `assets/refs/uni-foal-profile.png` (recorte da imagem aprovada 01, de perfil e com os quatro cascos no chão) | 30 | 30 | 320 | **descartada** — continuou com proporção adulta e trouxe furos visíveis no ombro e no flanco |
 
-As quatro saídas foram aceitas na primeira tentativa: antebraço contínuo até a mão, bracelete com
+As quatro primeiras saídas foram aceitas na primeira tentativa: antebraço contínuo até a mão, bracelete com
 rebites, dedos e polegar envolvendo a empunhadura, tacape de peça única com fibra e desgaste, e um
 monte de blocos partidos com tambor de coluna caído, com massa e profundidade reais. O GLB cru de cada
 uma tem ~60 MB e fica fora do git; o task id acima reproduz o download.
 
 ## Descartes
 
-Nenhum até agora. Cada descarte entra na tabela acima com o custo efetivo cobrado e o motivo.
+**60 créditos, as operações 5 e 6, ambas da Uni.** As duas gerações foram avaliadas contra o critério do
+#26 — "sem anatomia de cavalo adulto ou aparência de brinquedo" — e as duas reprovaram pelo mesmo
+motivo: o Meshy leu a potranca como cavalo adulto, com pernas longas, pescoço comprido e cabeça pequena.
+A segunda tentativa trocou a entrada por um perfil com os quatro cascos no chão, que é a pose certa para
+o rig, e ainda assim manteve a proporção adulta, além de trazer furos na malha.
+
+A terceira tentativa não foi disparada: duas falhas pelo mesmo motivo indicam limite da ferramenta para
+este alvo, não má sorte, e gastar mais do teto compartilhado nisso tira orçamento dos outros tickets.
 
 ## Recursos reaproveitados sem consumo
 
@@ -55,6 +64,28 @@ Nenhum até agora. Cada descarte entra na tabela acima com o custo efetivo cobra
 | Abóbada, arcos, nervuras, pilares e claristório da sala | autoria própria, `src/render/chapel.ts` | Geometria paramétrica no navegador; gerar no Meshy custaria créditos e daria menos controle sobre colisão e escala. |
 | Pedra de paredes, piso e teto | autoria própria, `src/render/textures.ts` | Cor, relevo e rugosidade derivados do mesmo passe procedural, sem custo e sem download. |
 
-## Pendências ao atingir o teto
+## Pendências
 
-Nada pendente por esgotamento até agora.
+Nada pendente por esgotamento do teto — sobram 320 créditos dos 500.
+
+**A malha e a pelagem da Uni continuam abaixo do alvo cinematográfico** e são a pendência aberta desta
+rodada. O que foi verificado e mantido, conforme o #26 manda avaliar antes de refazer:
+
+- O esqueleto quadrúpede e os três clipes (`idle`, `walk`, `alert`) estão corretos e ficam.
+- A passada continua dirigida pela distância percorrida, sem deslizamento.
+- A identidade — filhote de corpo claro, crina laranja e chifre — está preservada na malha atual, que é
+  justamente o que as duas gerações novas perderam.
+
+O que falta é o acabamento: a crina tem aresta dura, o corpo é branco chapado e o material responde à
+luz como plástico moldado. Duas rotas continuam abertas e nenhuma foi gasta:
+
+1. **Retextura da malha atual** (10 créditos), que preservaria geometria e rig. Bloqueada hoje por um
+   detalhe de rastreabilidade: a retextura exige o `input_task_id` da geração original ou uma URL
+   pública do modelo, e o id da geração de 12/09 não ficou registrado. Registrar ids de tarefa passou a
+   ser parte deste documento exatamente por isso.
+2. **Correção de proporção no Blender** sobre a geração 5, que tem focinho, orelhas e crina bem melhores
+   que a malha atual: encurtar membros, engrossar o tronco e aumentar a cabeça até a proporção de
+   filhote. É trabalho de autoria, sem consumo, e precisa de uma rodada dedicada.
+
+A decisão de qual rota seguir é do produtor. Não tratar a fase como aprovada enquanto a Uni estiver
+neste estado.
