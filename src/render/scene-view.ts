@@ -39,9 +39,7 @@ const COLUMN_TEXTURE_URL = "models/cenotaph/column-base-color.jpg";
 /** The volume the level already reserves for a column, so the colliders stay where they are. */
 const COLUMN_SIZE = { x: 0.8, y: 4, z: 0.8 };
 const RUBBLE_INTACT_URL = "models/cenotaph/rubble-intact.glb";
-const RUBBLE_INTACT_TEXTURE = "models/cenotaph/rubble-intact-base-color.jpg";
 const RUBBLE_BROKEN_URL = "models/cenotaph/rubble-broken.glb";
-const RUBBLE_BROKEN_TEXTURE = "models/cenotaph/rubble-broken-base-color.jpg";
 const ARCH_URL = "models/cenotaph/arch.glb";
 const ARCH_TEXTURE = "models/cenotaph/arch-base-color.jpg";
 const STATUE_URL = "models/cenotaph/statue.glb";
@@ -351,9 +349,13 @@ export class SceneView {
    * scene light into the vertex stage and WebGPU rejects the frame.
    */
   /**
-   * The blocked passage, from the same kit. The pieces are shallow reliefs, because the reference image
-   * is a straight-on view: the face is stretched to the doorway the level reserves and the depth is left
-   * alone, or the blocks smear into long prisms. The collider does not move either way.
+   * The blocked passage. The intact pile is a real heap of broken blocks with a fallen column drum in
+   * it, so it is placed whole and scaled uniformly: stretching it to the doorway, the way the old flat
+   * relief was, would smear the blocks into prisms and take the mass out of the obstacle.
+   *
+   * The broken state is the same heap of debris swept to either jamb, with the middle of the doorway
+   * left clear. Bobby needs 0.35 m of room and a path he can see is open; a pile left across the
+   * centre reads as still blocked even when the collider is gone.
    */
   private async loadObstacle(): Promise<void> {
     const b = this.level.obstacle.collider;
@@ -361,40 +363,61 @@ export class SceneView {
     const cz = (b.minZ + b.maxZ) / 2;
     const doorway = { width: b.maxZ - b.minZ, height: b.maxY - b.minY };
 
-    const place = async (url: string, texture: string, root: TransformNode, lyingDown: boolean): Promise<void> => {
-      const container = await loadAssetContainerAsync(url, this.scene, { pluginOptions: { gltf: { skipMaterials: true } } });
+    const take = async (url: string): Promise<Mesh | null> => {
+      const container = await loadAssetContainerAsync(url, this.scene);
       if (this.scene.isDisposed) {
         container.dispose();
-        return;
+        return null;
       }
       container.addAllToScene();
-      const mesh = container.meshes.find((m) => m.getTotalVertices() > 0);
-      if (!mesh) return;
-
-      const painted = new PBRMaterial(`${root.name}Painted`, this.scene);
-      painted.albedoTexture = new Texture(texture, this.scene, { invertY: false });
-      painted.metallic = 0;
-      painted.roughness = 0.95;
-      painted.maxSimultaneousLights = 2;
-      mesh.material = painted;
-      mesh.receiveShadows = false;
-
-      const size = mesh.getBoundingInfo().boundingBox.extendSize.scale(2);
-      const across = doorway.width / size.x;
-      mesh.scaling = lyingDown
-        ? new Vector3(across, across, across)
-        : new Vector3(across, doorway.height / size.y, across);
-      mesh.rotationQuaternion = null; // glTF nodes carry a quaternion, which would ignore the rotation below
-      mesh.rotation.y = Math.PI / 2; // the carved face turns to meet Bobby
-      mesh.position = new Vector3(cx, (size.y * (lyingDown ? across : doorway.height / size.y)) / 2, cz);
-      mesh.parent = root;
-      this.shadow.addShadowCaster(mesh as Mesh);
+      const mesh = container.meshes.find((m) => m.getTotalVertices() > 0) as Mesh | undefined;
+      if (!mesh) return null;
+      mesh.parent = null; // the glTF __root__ is scaled -1 on X and would mirror the placement
+      mesh.rotationQuaternion = null;
+      for (const material of container.materials) {
+        if (material instanceof PBRMaterial) material.maxSimultaneousLights = 2;
+      }
+      return mesh;
     };
 
-    await Promise.all([
-      place(RUBBLE_INTACT_URL, RUBBLE_INTACT_TEXTURE, this.obstacleIntact, false),
-      place(RUBBLE_BROKEN_URL, RUBBLE_BROKEN_TEXTURE, this.obstacleBroken, true),
-    ]);
+    const [intact, broken] = await Promise.all([take(RUBBLE_INTACT_URL), take(RUBBLE_BROKEN_URL)]);
+
+    if (intact) {
+      const size = intact.getBoundingInfo().boundingBox.extendSize.scale(2);
+      // The heap is widest along one horizontal axis; that axis has to lie across the doorway, or the
+      // pile blocks the passage edge-on and Bobby can see straight past it.
+      // The generation was made from a straight-on reference, so its detail is on one face and its
+      // back is the flat cut where the crop ended. That face has to meet Bobby, who comes from -X.
+      const acrossIsX = size.x >= size.z;
+      intact.rotation.y = acrossIsX ? -Math.PI / 2 : Math.PI;
+      const across = Math.max(size.x, size.z);
+      // filling the doorway means covering its width and its height; the depth can overhang
+      const fit = Math.max(doorway.width / across, (doorway.height * 1.08) / size.y);
+      intact.scaling.setAll(fit);
+      intact.position = new Vector3(cx, (size.y * fit) / 2, cz);
+      intact.parent = this.obstacleIntact;
+      intact.receiveShadows = true;
+      this.shadow.addShadowCaster(intact);
+    }
+
+    if (broken) {
+      const size = broken.getBoundingInfo().boundingBox.extendSize.scale(2);
+      const heapWidth = 1.05;
+      const fit = heapWidth / Math.max(size.x, size.z);
+      const jambs: [number, number][] = [
+        [cz - doorway.width / 2 + heapWidth / 2, 0.4],
+        [cz + doorway.width / 2 - heapWidth / 2, -2.1],
+      ];
+      jambs.forEach(([z, turn], i) => {
+        const heap = i === 0 ? broken : (broken.createInstance(`rubbleHeap${i}`) as unknown as Mesh);
+        heap.scaling.setAll(fit);
+        heap.rotationQuaternion = null;
+        heap.rotation.y = turn; // the two heaps are the same stones seen from different sides
+        heap.position = new Vector3(cx, 0, z);
+        heap.parent = this.obstacleBroken;
+        this.shadow.addShadowCaster(heap);
+      });
+    }
   }
 
   /** Decoration with no collider: the arch framing the portico mouth and the statues along the room. */

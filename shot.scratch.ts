@@ -13,4 +13,6 @@ await go("const g=window.__game; g.command({type:'move',forward:1,strafe:0}); g.
 await go("const g=window.__game; const s=g.snapshot(); g.command({type:'look',yaw:0,pitch:1.15-s.player.pitch});", "b-vault");
 await go("const g=window.__game; const s=g.snapshot(); g.command({type:'look',yaw:0,pitch:-0.2-s.player.pitch}); g.command({type:'chargeStart'}); g.fastForward(0.8);", "c-charge");
 await go("const g=window.__game; g.command({type:'chargeRelease'}); g.fastForward(0.45);", "d-strike");
+await go("const g=window.__game; g.command({type:'move',forward:1,strafe:0}); g.fastForward(1.6); g.command({type:'move',forward:0,strafe:0}); g.command({type:'chargeStart'}); g.fastForward(0.8); g.command({type:'chargeRelease'}); g.fastForward(0.5);", "e-broken");
+await go("const g=window.__game; g.command({type:'move',forward:1,strafe:0}); g.fastForward(2.2); g.command({type:'move',forward:0,strafe:0});", "f-exit");
 await browser.close();
