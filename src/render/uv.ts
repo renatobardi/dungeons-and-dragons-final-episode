@@ -14,6 +14,8 @@ export const FACE = { front: 0, back: 1, right: 2, left: 3, top: 4, bottom: 5 } 
 export type FaceUv = [number, number, number, number];
 
 export function boxFaceUvs(width: number, height: number, depth: number, tile: number): FaceUv[] {
+  // written as the negation of "> 0" on purpose: `tile <= 0` would let NaN through, and a NaN
+  // tile silently produces NaN UVs and an untextured mesh rather than an error anyone can read
   if (!(tile > 0)) throw new Error(`tile size must be positive, got ${tile}`);
   const rect = (across: number, up: number): FaceUv => [0, 0, across / tile, up / tile];
   const faces: FaceUv[] = [];

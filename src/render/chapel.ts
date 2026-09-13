@@ -1,15 +1,13 @@
 import type { Scene } from "@babylonjs/core/scene";
-import { Color3 } from "@babylonjs/core/Maths/math.color";
-import { Vector3 } from "@babylonjs/core/Maths/math.vector";
+import { Color3, Color4 } from "@babylonjs/core/Maths/math.color";
+import { Vector3, Vector4 } from "@babylonjs/core/Maths/math.vector";
 import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder";
-import { Vector4 } from "@babylonjs/core/Maths/math.vector";
 import { Mesh } from "@babylonjs/core/Meshes/mesh";
 import { TransformNode } from "@babylonjs/core/Meshes/transformNode";
 import type { Material } from "@babylonjs/core/Materials/material";
 import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial";
 import { VertexData } from "@babylonjs/core/Meshes/mesh.vertexData";
 import { DynamicTexture } from "@babylonjs/core/Materials/Textures/dynamicTexture";
-import { Color4 } from "@babylonjs/core/Maths/math.color";
 import { ParticleSystem } from "@babylonjs/core/Particles/particleSystem";
 
 import type { Box } from "../sim/geometry";
@@ -33,6 +31,20 @@ const COLLIDER_TOP = 4;
 /** Windows sit in the upper wall, out of reach and high enough to throw a shaft across the floor. */
 const WINDOW = { sill: 5.4, head: 8.6, width: 1.5 };
 const WEB_STEPS = 24;
+/** Thickness of the upper wall. */
+const WALL_T = 1;
+/** Window openings per side. */
+const WINDOW_BAYS = 3;
+
+/** One side of the room's upper wall, named by the axis it is perpendicular to. */
+interface Side {
+  axis: "x" | "z";
+  /** Position on that axis. */
+  at: number;
+  /** Start and end of the wall along the other axis. */
+  span: [number, number];
+}
+
 /** Metres of wall per repeat of the stone texture. Every surface uses it, so the courses match. */
 export const TILE = 2.2;
 
@@ -63,70 +75,82 @@ export function buildChapel(scene: Scene, room: Box, stoneMaterial: Material): C
     return mesh;
   };
 
-  // --- upper walls, pierced by the clerestory -------------------------------
-  // Each side is drawn as a sill course, a head course and the piers between the window openings,
-  // rather than one slab with holes: the same stone, and no CSG to pay for.
-  const T = 1;
-  const sides: { axis: "x" | "z"; at: number; span: [number, number] }[] = [
-    { axis: "z", at: room.minZ - T / 2, span: [room.minX, room.maxX] },
-    { axis: "z", at: room.maxZ + T / 2, span: [room.minX, room.maxX] },
-    { axis: "x", at: room.minX - T / 2, span: [room.minZ, room.maxZ] },
-    { axis: "x", at: room.maxX + T / 2, span: [room.minZ, room.maxZ] },
+  const sides: Side[] = [
+    { axis: "z", at: room.minZ - WALL_T / 2, span: [room.minX, room.maxX] },
+    { axis: "z", at: room.maxZ + WALL_T / 2, span: [room.minX, room.maxX] },
+    { axis: "x", at: room.minX - WALL_T / 2, span: [room.minZ, room.maxZ] },
+    { axis: "x", at: room.maxX + WALL_T / 2, span: [room.minZ, room.maxZ] },
   ];
 
   for (const [i, side] of sides.entries()) {
-    const length = side.span[1] - side.span[0];
-    const mid = (side.span[0] + side.span[1]) / 2;
-    const slab = (name: string, bottom: number, top: number, width: number, along: number): Mesh => {
-      const size = side.axis === "z"
-        ? { width, height: top - bottom, depth: T }
-        : { width: T, height: top - bottom, depth: width };
-      const faceUV = boxFaceUvs(size.width, size.height, size.depth, TILE).map((f) => new Vector4(...f));
-      const m = MeshBuilder.CreateBox(`${name}${i}`, { ...size, faceUV, wrap: true }, scene);
-      m.position = side.axis === "z"
-        ? new Vector3(along, (bottom + top) / 2, side.at)
-        : new Vector3(side.at, (bottom + top) / 2, along);
-      return piece(m);
-    };
+    buildUpperWall(scene, side, i, root, piece);
+  }
+  buildPiers(scene, room, piece);
+  piece(webMesh(scene, cx, cz, halfX, halfZ));
+  buildRibs(scene, cx, cz, halfX, halfZ, piece);
+  const shafts = buildShafts(scene, sides, root, cx, cz);
 
-    slab("upperSill", COLLIDER_TOP, WINDOW.sill, length, mid);
-    slab("upperHead", WINDOW.head, BAY.springing, length, mid);
-    // three windows a side, with wall between them
-    const bays = 3;
-    const step = length / bays;
-    for (let b = 0; b <= bays; b++) {
-      const centre = side.span[0] + step * b;
-      const pierWidth = step - WINDOW.width;
-      if (pierWidth <= 0) continue;
-      const offset = b === 0 ? pierWidth / 2 : b === bays ? -pierWidth / 2 : 0;
-      slab("mullion", WINDOW.sill, WINDOW.head, pierWidth, centre + offset);
-    }
+  return { root, stone, shafts };
+}
 
-    // The openings need daylight in them. Left empty they are holes onto the scene's clear colour —
-    // dark blue-black panels high on the wall, which is the opposite of the source the shafts claim.
-    for (let b = 0; b < bays; b++) {
-      const centre = side.span[0] + step * (b + 0.5);
-      const pane = MeshBuilder.CreatePlane(`clerestory${i}-${b}`, { width: WINDOW.width, height: WINDOW.head - WINDOW.sill }, scene);
-      pane.material = daylightMaterial(scene);
-      pane.isPickable = false;
-      pane.parent = root;
-      pane.position = side.axis === "z"
-        ? new Vector3(centre, (WINDOW.sill + WINDOW.head) / 2, side.at)
-        : new Vector3(side.at, (WINDOW.sill + WINDOW.head) / 2, centre);
-      // only the plane the pane lies in matters; a pane of light has no wrong side, and the material
-      // draws both, so which way round it faces does not
-      pane.rotation.y = side.axis === "z" ? 0 : Math.PI / 2;
+/**
+ * One side of the upper wall: a sill course, a head course, the piers between the openings and a pane
+ * of daylight in each opening. Drawing it in courses rather than cutting holes in a slab keeps it the
+ * same stone as everything else and costs no CSG.
+ */
+function buildUpperWall(scene: Scene, side: Side, index: number, root: TransformNode, piece: (m: Mesh) => Mesh): void {
+  const length = side.span[1] - side.span[0];
+  const mid = (side.span[0] + side.span[1]) / 2;
+
+  const slab = (name: string, bottom: number, top: number, width: number, along: number): Mesh => {
+    const size = wallSlabSize(side, width, top - bottom);
+    const faceUV = boxFaceUvs(size.width, size.height, size.depth, TILE).map((f) => new Vector4(...f));
+    const m = MeshBuilder.CreateBox(`${name}${index}`, { ...size, faceUV, wrap: true }, scene);
+    m.position = wallPoint(side, along, (bottom + top) / 2);
+    return piece(m);
+  };
+
+  slab("upperSill", COLLIDER_TOP, WINDOW.sill, length, mid);
+  slab("upperHead", WINDOW.head, BAY.springing, length, mid);
+
+  const step = length / WINDOW_BAYS;
+  const pierWidth = step - WINDOW.width;
+  if (pierWidth > 0) {
+    for (let b = 0; b <= WINDOW_BAYS; b++) {
+      // the end piers sit half inside the span, so the wall closes at the corners
+      let offset = 0;
+      if (b === 0) offset = pierWidth / 2;
+      else if (b === WINDOW_BAYS) offset = -pierWidth / 2;
+      slab("mullion", WINDOW.sill, WINDOW.head, pierWidth, side.span[0] + step * b + offset);
     }
   }
 
-  // --- piers rising from the columns to the springing -----------------------
-  const pierSpots: [number, number][] = [
+  // The openings need daylight in them. Left empty they are holes onto the scene's clear colour —
+  // dark blue-black panels high on the wall, which is the opposite of the source the shafts claim.
+  for (let b = 0; b < WINDOW_BAYS; b++) {
+    const pane = MeshBuilder.CreatePlane(`clerestory${index}-${b}`, {
+      width: WINDOW.width,
+      height: WINDOW.head - WINDOW.sill,
+    }, scene);
+    pane.material = daylightMaterial(scene);
+    pane.isPickable = false;
+    pane.parent = root;
+    pane.position = wallPoint(side, side.span[0] + step * (b + 0.5), (WINDOW.sill + WINDOW.head) / 2);
+    // only the plane the pane lies in matters; a pane of light has no wrong side, and the material
+    // draws both, so which way round it faces does not
+    pane.rotation.y = side.axis === "z" ? 0 : Math.PI / 2;
+  }
+}
+
+/** The four piers that carry the vault, rising from the room's corner columns to the springing. */
+function buildPiers(scene: Scene, room: Box, piece: (m: Mesh) => Mesh): void {
+  const spots: [number, number][] = [
     [room.minX + 0.45, room.minZ + 0.5],
     [room.minX + 0.45, room.maxZ - 0.5],
     [room.maxX - 0.45, room.minZ + 0.5],
     [room.maxX - 0.45, room.maxZ - 0.5],
   ];
-  for (const [x, z] of pierSpots) {
+  for (const [x, z] of spots) {
     const shaft = MeshBuilder.CreateCylinder("pierShaft", {
       height: BAY.springing - COLLIDER_TOP,
       diameter: 0.7,
@@ -134,6 +158,7 @@ export function buildChapel(scene: Scene, room: Box, stoneMaterial: Material): C
     }, scene);
     shaft.position = new Vector3(x, (COLLIDER_TOP + BAY.springing) / 2, z);
     piece(shaft);
+
     const capital = MeshBuilder.CreateCylinder("pierCapital", {
       height: 0.45,
       diameterTop: 1.15,
@@ -143,29 +168,30 @@ export function buildChapel(scene: Scene, room: Box, stoneMaterial: Material): C
     capital.position = new Vector3(x, BAY.springing - 0.2, z);
     piece(capital);
   }
+}
 
-  // --- the vault web --------------------------------------------------------
-  const web = webMesh(scene, cx, cz, halfX, halfZ);
-  piece(web);
-
-  // --- ribs: the diagonals and the transverse arches against each wall ------
-  const ribTube = (name: string, from: [number, number], to: [number, number], radius: number): void => {
+/** The two groin ribs along the diagonals and the transverse arch against each wall. */
+function buildRibs(scene: Scene, cx: number, cz: number, halfX: number, halfZ: number, piece: (m: Mesh) => Mesh): void {
+  const tube = (name: string, from: [number, number], to: [number, number], radius: number): void => {
     const path = ribCurve(from, to, BAY, WEB_STEPS).map(
       ([u, y, v]) => new Vector3(cx + u * halfX, y - 0.06, cz + v * halfZ),
     );
     piece(MeshBuilder.CreateTube(name, { path, radius, tessellation: 8, cap: Mesh.CAP_ALL }, scene));
   };
-  ribTube("ribNE", [-1, -1], [1, 1], 0.16);
-  ribTube("ribNW", [-1, 1], [1, -1], 0.16);
-  ribTube("archS", [-1, -1], [1, -1], 0.2);
-  ribTube("archN", [-1, 1], [1, 1], 0.2);
-  ribTube("archW", [-1, -1], [-1, 1], 0.2);
-  ribTube("archE", [1, -1], [1, 1], 0.2);
+  tube("ribNE", [-1, -1], [1, 1], 0.16);
+  tube("ribNW", [-1, 1], [1, -1], 0.16);
+  tube("archS", [-1, -1], [1, -1], 0.2);
+  tube("archN", [-1, 1], [1, 1], 0.2);
+  tube("archW", [-1, -1], [-1, 1], 0.2);
+  tube("archE", [1, -1], [1, 1], 0.2);
+}
 
-  // --- clerestory shafts ----------------------------------------------------
-  // Additive cones from the windows. They fall steeply and land near the wall, well clear of the line
-  // Bobby walks, and they die out above his head: an additive volume the camera enters whites out the
-  // frame. The falloff texture fades them at both ends and at the silhouette, so no hard cone edge.
+/**
+ * Additive cones from the windows. They fall steeply and land near the wall, well clear of the line
+ * Bobby walks, and they die out above his head: an additive volume the camera enters whites out the
+ * frame. The falloff texture fades them at both ends and at the silhouette, so no hard cone edge.
+ */
+function buildShafts(scene: Scene, sides: Side[], root: TransformNode, cx: number, cz: number): Mesh[] {
   const shaftMat = new StandardMaterial("shaftMat", scene);
   shaftMat.emissiveColor = new Color3(0.30, 0.35, 0.46);
   shaftMat.diffuseColor = Color3.Black();
@@ -174,18 +200,12 @@ export function buildChapel(scene: Scene, room: Box, stoneMaterial: Material): C
   shaftMat.backFaceCulling = false;
   shaftMat.alphaMode = 1; // additive: the shaft adds light to what is behind it, never occludes it
 
-  const shafts: Mesh[] = [];
   const SHAFT_LENGTH = 7;
+  const shafts: Mesh[] = [];
   for (const [i, side] of sides.entries()) {
-    const length = side.span[1] - side.span[0];
-    const along = side.span[0] + length / 2;
-    const inward = side.axis === "z"
-      ? new Vector3(0, 0, side.at < cz ? 1 : -1)
-      : new Vector3(side.at < cx ? 1 : -1, 0, 0);
-    const from = side.axis === "z"
-      ? new Vector3(along, WINDOW.head - 0.4, side.at)
-      : new Vector3(side.at, WINDOW.head - 0.4, along);
-    const to = from.add(inward.scale(2.6)).add(new Vector3(0, -5.6, 0));
+    const along = (side.span[0] + side.span[1]) / 2;
+    const from = wallPoint(side, along, WINDOW.head - 0.4);
+    const to = from.add(inwardFrom(side, cx, cz).scale(2.6)).add(new Vector3(0, -5.6, 0));
 
     const shaft = MeshBuilder.CreateCylinder(`shaft${i}`, {
       height: SHAFT_LENGTH,
@@ -197,14 +217,30 @@ export function buildChapel(scene: Scene, room: Box, stoneMaterial: Material): C
     shaft.isPickable = false;
     shaft.receiveShadows = false;
     shaft.parent = root;
-    const dir = to.subtract(from).normalize();
-    shaft.position = from.add(dir.scale(SHAFT_LENGTH / 2));
+    shaft.position = from.add(to.subtract(from).normalize().scale(SHAFT_LENGTH / 2));
     shaft.lookAt(to);
     shaft.rotate(new Vector3(1, 0, 0), Math.PI / 2);
     shafts.push(shaft);
   }
+  return shafts;
+}
 
-  return { root, stone, shafts };
+/** A point on a wall, `along` metres down its span and `y` metres up it. */
+function wallPoint(side: Side, along: number, y: number): Vector3 {
+  return side.axis === "z" ? new Vector3(along, y, side.at) : new Vector3(side.at, y, along);
+}
+
+/** Box dimensions for a slab that runs `width` along a wall and `height` up it. */
+function wallSlabSize(side: Side, width: number, height: number): { width: number; height: number; depth: number } {
+  return side.axis === "z"
+    ? { width, height, depth: WALL_T }
+    : { width: WALL_T, height, depth: width };
+}
+
+/** Unit vector pointing from a wall into the room. */
+function inwardFrom(side: Side, cx: number, cz: number): Vector3 {
+  if (side.axis === "z") return new Vector3(0, 0, side.at < cz ? 1 : -1);
+  return new Vector3(side.at < cx ? 1 : -1, 0, 0);
 }
 
 /**

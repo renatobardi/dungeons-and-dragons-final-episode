@@ -132,23 +132,40 @@ function heightField(size: number, spec: PaintSpec): Float32Array {
   ctx.fillStyle = "rgb(150,150,150)";
   ctx.fillRect(0, 0, size, size);
 
-  if (spec.blocks) {
-    const { w, h, gap } = spec.blocks;
-    let row = 0;
-    for (let y = 0; y < size; y += h) {
-      const offset = row % 2 === 0 ? 0 : w / 2;
-      for (let x = -w; x < size + w; x += w) {
-        // each block is laid a little proud or a little sunk, the way a real course never is flush
-        const level = 150 + (rnd() - 0.4) * 70;
-        ctx.fillStyle = `rgb(${level},${level},${level})`;
-        ctx.fillRect(x + offset + gap, y + gap, w - gap * 2, h - gap * 2);
-      }
-      row++;
-    }
-    // the mortar itself is the recess between them, left at the dark base above
-  }
+  if (spec.blocks) courseHeights(ctx, size, spec.blocks, rnd);
+  pitHeights(ctx, size, spec, rnd);
+  ctx.globalAlpha = 1;
+  if (spec.cracks) crackGrooves(ctx, size, spec.cracks, rnd);
 
-  // pitting and erosion over the faces
+  const data = ctx.getImageData(0, 0, size, size).data;
+  const field = new Float32Array(size * size);
+  for (let i = 0; i < field.length; i++) field[i] = data[i * 4]! / 255;
+  return field;
+}
+
+/** Each block laid a little proud or a little sunk, the way a real course never is flush. */
+function courseHeights(
+  ctx: CanvasRenderingContext2D,
+  size: number,
+  blocks: NonNullable<PaintSpec["blocks"]>,
+  rnd: () => number,
+): void {
+  const { w, h, gap } = blocks;
+  let row = 0;
+  for (let y = 0; y < size; y += h) {
+    const offset = row % 2 === 0 ? 0 : w / 2;
+    for (let x = -w; x < size + w; x += w) {
+      const level = 150 + (rnd() - 0.4) * 70;
+      ctx.fillStyle = `rgb(${level},${level},${level})`;
+      ctx.fillRect(x + offset + gap, y + gap, w - gap * 2, h - gap * 2);
+    }
+    row++;
+  }
+  // the mortar itself is the recess between them, left at the dark base
+}
+
+/** Pitting and erosion over the faces. */
+function pitHeights(ctx: CanvasRenderingContext2D, size: number, spec: PaintSpec, rnd: () => number): void {
   for (let i = 0; i < spec.dabCount; i++) {
     const w = spec.dabSize[0] + rnd() * (spec.dabSize[1] - spec.dabSize[0]);
     const shade = rnd() < 0.5 ? 0 : 255;
@@ -162,30 +179,25 @@ function heightField(size: number, spec: PaintSpec): Float32Array {
     ctx.fill();
     ctx.restore();
   }
+}
 
-  ctx.globalAlpha = 1;
-  if (spec.cracks) {
-    ctx.strokeStyle = "rgb(40,40,40)";
-    for (let i = 0; i < spec.cracks; i++) {
-      let x = rnd() * size;
-      let y = rnd() * size;
-      ctx.lineWidth = 1 + rnd() * 2.5;
-      ctx.beginPath();
-      ctx.moveTo(x, y);
-      const segs = 6 + Math.floor(rnd() * 10);
-      for (let s = 0; s < segs; s++) {
-        x += (rnd() - 0.5) * 30;
-        y += (rnd() - 0.5) * 30;
-        ctx.lineTo(x, y);
-      }
-      ctx.stroke();
+/** Cracks, cut as grooves rather than drawn as lines. */
+function crackGrooves(ctx: CanvasRenderingContext2D, size: number, count: number, rnd: () => number): void {
+  ctx.strokeStyle = "rgb(40,40,40)";
+  for (let i = 0; i < count; i++) {
+    let x = rnd() * size;
+    let y = rnd() * size;
+    ctx.lineWidth = 1 + rnd() * 2.5;
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    const segs = 6 + Math.floor(rnd() * 10);
+    for (let s = 0; s < segs; s++) {
+      x += (rnd() - 0.5) * 30;
+      y += (rnd() - 0.5) * 30;
+      ctx.lineTo(x, y);
     }
+    ctx.stroke();
   }
-
-  const data = ctx.getImageData(0, 0, size, size).data;
-  const field = new Float32Array(size * size);
-  for (let i = 0; i < field.length; i++) field[i] = data[i * 4]! / 255;
-  return field;
 }
 
 export interface StoneSurface {
