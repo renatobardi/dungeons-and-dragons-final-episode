@@ -187,6 +187,9 @@ test.describe("cenotaph entrance flow", () => {
     await expect(page.locator("#charge")).toHaveClass(/visible/);
     await page.waitForFunction(() => window.__game!.snapshot().charge.ready, null, { timeout: 20_000 });
     await expect(page.locator("#charge")).toHaveClass(/ready/);
+    // The press itself carries another virtual-cursor look, so the aim is restored right before the
+    // strike leaves: the club swings along the view at the moment the button is released.
+    await aimAtObstacle(page);
     await page.mouse.up();
     await page.waitForFunction(() => window.__game!.snapshot().obstacle === "broken", null, { timeout: 20_000 });
     await page.keyboard.down("KeyW");
