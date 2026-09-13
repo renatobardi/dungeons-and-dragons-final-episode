@@ -11,7 +11,7 @@ import sys
 import bpy
 from mathutils import Vector
 
-argv = sys.argv[sys.argv.index("--", sys.argv.index("--") + 1) + 1 :] if sys.argv.count("--") > 1 else sys.argv[sys.argv.index("--") + 1 :]
+argv = sys.argv[sys.argv.index("--") + 1 :]
 model_path, out_path = argv[0], argv[1]
 angle = math.radians(float(argv[2])) if len(argv) > 2 else math.radians(35)
 

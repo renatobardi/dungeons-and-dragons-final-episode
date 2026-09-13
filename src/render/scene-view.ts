@@ -200,7 +200,7 @@ export class SceneView {
 
     this.uni = new UniView(scene, this.shadow);
     this.hands = new HandsView(scene, this.camera);
-    this.ready = Promise.all([this.uni.loaded, this.loadColumns(), this.loadObstacle(), this.loadDecor()]).then(() => undefined);
+    this.ready = Promise.all([this.uni.loaded, this.hands.loaded, this.loadColumns(), this.loadObstacle(), this.loadDecor()]).then(() => undefined);
 
     // WebGPU allows 12 uniform buffers per shader stage. With Uni's model in the scene the room cannot
     // afford a light per torch, so only the nearest three torches cast light; the flames still glow.

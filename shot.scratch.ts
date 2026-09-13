@@ -1,0 +1,16 @@
+import { chromium } from "@playwright/test";
+const out = process.argv[2] ?? "/tmp/shots";
+const browser = await chromium.launch({ channel: "chrome", headless: false });
+const ctx = await browser.newContext({ viewport: { width: 1400, height: 875 }, deviceScaleFactor: 2 });
+const page = await ctx.newPage();
+page.on("pageerror", (e) => console.log("PAGEERROR", e.message));
+await page.goto("http://localhost:4173/?debug&nolock");
+await page.waitForSelector('body[data-state="ready"]', { timeout: 60000 });
+await page.click("#play");
+await page.waitForSelector('body[data-state="playing"]');
+const go = async (js: string, name: string) => { await page.evaluate(js); await page.waitForTimeout(700); await page.screenshot({ path: `${out}/${name}.png` }); };
+await go("const g=window.__game; g.command({type:'move',forward:1,strafe:0}); g.fastForward(4.4); g.command({type:'look',yaw:Math.PI/2,pitch:0}); g.fastForward(1.6); g.command({type:'look',yaw:-0.15,pitch:0}); g.fastForward(2.2); g.command({type:'move',forward:0,strafe:0});", "a-room");
+await go("const g=window.__game; const s=g.snapshot(); g.command({type:'look',yaw:0,pitch:1.15-s.player.pitch});", "b-vault");
+await go("const g=window.__game; const s=g.snapshot(); g.command({type:'look',yaw:0,pitch:-0.2-s.player.pitch}); g.command({type:'chargeStart'}); g.fastForward(0.8);", "c-charge");
+await go("const g=window.__game; g.command({type:'chargeRelease'}); g.fastForward(0.45);", "d-strike");
+await browser.close();
