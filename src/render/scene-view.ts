@@ -29,6 +29,7 @@ import type { SimEvent, Snapshot } from "../sim/simulation";
 import { stoneSurface, RUBBLE, STONE_FLOOR, STONE_WALL } from "./textures";
 import { buildChapel, TILE, VAULT_CROWN } from "./chapel";
 import { boxFaceUvs } from "./uv";
+import { buildTorch, flicker, type Torch } from "./torch";
 import { UniView } from "./uni-view";
 import { fitScale } from "./fit";
 
@@ -52,6 +53,14 @@ const STATUE_SPOTS: [number, number, number][] = [
 ];
 import { HandsView } from "./hands-view";
 
+/**
+ * Which sconces carry a real light. The scene tops out at seven lights on WebGPU — the shaft, the sky,
+ * the exit and four torches — and asking for one more does not warn, it renders black. Measured, not
+ * assumed: five lit torches is a black screen on this Mac in Chrome. The unlit ones still burn, and
+ * these four are the ones whose pools of light the route actually passes through.
+ */
+const LIT_TORCHES = new Set([1, 3, 4, 5]);
+
 export interface QualitySettings {
   taa: boolean;
   highShadows: boolean;
@@ -69,7 +78,7 @@ export class SceneView {
   private readonly obstacleIntact: TransformNode;
   private readonly obstacleBroken: TransformNode;
   private readonly dust: ParticleSystem;
-  private readonly torches: PointLight[] = [];
+  private readonly torches: Torch[];
   private readonly chapel: ReturnType<typeof buildChapel>;
   private readonly shadow: ShadowGenerator;
   private readonly pipeline: DefaultRenderingPipeline;
@@ -158,22 +167,15 @@ export class SceneView {
       [24.85, 2.6, 17],
     ];
     const glow = new GlowLayer("glow", scene, { blurKernelSize: 32 });
-    glow.intensity = 0.6;
-    const flameMat = new StandardMaterial("flame", scene);
-    flameMat.emissiveColor = new Color3(1, 0.55, 0.15);
-    flameMat.disableLighting = true;
-    for (const [x, y, z] of torchSpots) {
-      const light = new PointLight(`torch${this.torches.length}`, new Vector3(x, y, z), scene);
-      light.diffuse = new Color3(1, 0.62, 0.3);
-      light.intensity = 9;
-      light.range = 12;
-      this.torches.push(light);
-      const flame = MeshBuilder.CreateSphere(`flame${this.torches.length}`, { diameter: 0.22, segments: 6 }, scene);
-      flame.position = new Vector3(x, y, z);
-      flame.material = flameMat;
-      const holder = MeshBuilder.CreateCylinder(`holder${this.torches.length}`, { height: 0.5, diameter: 0.08 }, scene);
-      holder.position = new Vector3(x, y - 0.3, z);
-      holder.material = rubbleMat;
+    glow.intensity = 0.32; // enough to bloom the wick, not enough to swallow the flame into a ball
+    // Every torch burns, but only the first few carry a light. WebGPU binds a limited number of
+    // uniform buffers per shader stage, and with the chapel and Uni in the scene the room cannot
+    // afford one light per sconce; the flames still light themselves through the glow layer.
+    this.torches = torchSpots.map(([x, y, z], i) =>
+      buildTorch(scene, new Vector3(x, y, z), rubbleMat, i, { lit: LIT_TORCHES.has(i) }),
+    );
+    for (const torch of this.torches) {
+      for (const piece of torch.iron) this.shadow.addShadowCaster(piece);
     }
 
     // obstacle: intact pile vs broken rubble
@@ -201,10 +203,6 @@ export class SceneView {
     this.uni = new UniView(scene, this.shadow);
     this.hands = new HandsView(scene, this.camera);
     this.ready = Promise.all([this.uni.loaded, this.hands.loaded, this.loadColumns(), this.loadObstacle(), this.loadDecor()]).then(() => undefined);
-
-    // WebGPU allows 12 uniform buffers per shader stage. With Uni's model in the scene the room cannot
-    // afford a light per torch, so only the nearest three torches cast light; the flames still glow.
-    for (const torch of this.torches.slice(3)) torch.dispose();
 
     this.pipeline = new DefaultRenderingPipeline("post", true, scene, [this.camera]);
     this.pipeline.bloomEnabled = true;
@@ -264,9 +262,7 @@ export class SceneView {
       mat.alpha = 0.2 + Math.sin(this.elapsed * 0.5 + i * 1.3) * 0.04;
     });
 
-    this.torches.forEach((t, i) => {
-      t.intensity = 8 + Math.sin(this.elapsed * (7 + i) + i * 1.7) * 0.9 + Math.sin(this.elapsed * 13 + i) * 0.5;
-    });
+    this.torches.forEach((torch, i) => flicker(torch, this.elapsed, i));
   }
 
   /** For browser tests: the clip Uni is playing and the frame of it she is holding. */
