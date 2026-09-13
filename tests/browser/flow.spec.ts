@@ -168,18 +168,18 @@ test.describe("cenotaph entrance flow", () => {
     await page.waitForTimeout(200);
     expect(await page.evaluate(() => window.__game!.snapshot().obstacle)).toBe("intact");
 
+    // The charge builds per simulation step, so every wait below watches the charge itself:
+    // on a software renderer a wall-clock wait buys far fewer steps than it looks like.
     await page.mouse.down();
-    await page.waitForTimeout(400);
+    await page.waitForFunction(() => window.__game!.snapshot().charge.charging, null, { timeout: 20_000 });
     await expect(page.locator("#charge")).toHaveClass(/visible/);
-    await page.waitForTimeout(500);
+    await page.waitForFunction(() => window.__game!.snapshot().charge.ready, null, { timeout: 20_000 });
     await expect(page.locator("#charge")).toHaveClass(/ready/);
     await page.mouse.up();
-    await page.waitForTimeout(200);
-    expect(await page.evaluate(() => window.__game!.snapshot().obstacle)).toBe("broken");
+    await page.waitForFunction(() => window.__game!.snapshot().obstacle === "broken", null, { timeout: 20_000 });
     await page.keyboard.down("KeyW");
-    await page.waitForTimeout(1500);
+    await page.waitForFunction(() => window.__game!.snapshot().player.x > 21.2, null, { timeout: 20_000 });
     await page.keyboard.up("KeyW");
-    expect(await page.evaluate(() => window.__game!.snapshot().player.x)).toBeGreaterThan(21.2);
     expect(errors).toEqual([]);
   });
 
@@ -205,15 +205,16 @@ test.describe("cenotaph entrance flow", () => {
     await expect(page.locator("body")).toHaveAttribute("data-state", "ready", { timeout: 30_000 });
     await page.click("#play");
     await page.keyboard.down("KeyW");
-    await page.waitForTimeout(900);
+    // Her step is scrubbed from the ground she covers, so the waits watch the clip, not the clock.
+    await page.waitForFunction(() => window.__game!.uniGait().clip === "walk", null, { timeout: 20_000 });
     const first = await page.evaluate(() => window.__game!.uniGait());
-    await page.waitForTimeout(600);
+    await page.waitForFunction((f) => window.__game!.uniGait().frame !== f, first.frame, { timeout: 20_000 });
     const second = await page.evaluate(() => window.__game!.uniGait());
     expect(first.clip).toBe("walk");
     expect(second.frame).not.toBe(first.frame);
 
     await page.keyboard.up("KeyW");
-    await page.waitForTimeout(1200);
+    await page.waitForFunction(() => window.__game!.uniGait().clip === "idle", null, { timeout: 20_000 });
     const stopped = await page.evaluate(() => window.__game!.uniGait());
     await page.waitForTimeout(600);
     const still = await page.evaluate(() => window.__game!.uniGait());
