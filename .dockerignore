@@ -1,0 +1,12 @@
+.git
+node_modules
+dist
+test-results
+playwright-report
+.scratch
+docs
+.claude
+.agents
+.devin
+.goose
+.windsurf

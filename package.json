@@ -4,6 +4,7 @@
   "private": true,
   "description": "Caverna do Dragão — Episódio Final: first-person browser game with Bobby and Uni",
   "type": "module",
+  "packageManager": "pnpm@11.22.0",
   "scripts": {
     "dev": "vite",
     "build": "vite build",

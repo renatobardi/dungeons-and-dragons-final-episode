@@ -1,0 +1,59 @@
+# Deploys main to https://bobby.oute.pro (LXC `bobby-prd` on oute-server).
+#
+# The runner joins the tailnet, ssh's into the host and drives the container
+# through the LXD delegation — the app container runs no Tailscale of its own,
+# per the install-app skill in renatobardi/lab.
+#
+# Required secrets (environment `prd`): TS_AUTHKEY_PRD (tagged Tailscale auth
+# key), OUTE_SSH_HOST (ubuntu@<tailscale ip of oute-server>), DEPLOY_SSH_KEY
+# (private key whose public half sits in the host's authorized_keys).
+name: cd
+
+on:
+  workflow_run:
+    workflows: [ci]
+    branches: [main]
+    types: [completed]
+  workflow_dispatch:
+
+env:
+  CONTAINER: bobby-prd
+  APP_PORT: "3750"
+
+jobs:
+  deploy:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    environment: prd
+    concurrency:
+      group: cd-prd
+      cancel-in-progress: false
+    permissions:
+      contents: read
+    steps:
+      - name: Tailscale
+        uses: tailscale/github-action@v4
+        with:
+          authkey: ${{ secrets.TS_AUTHKEY_PRD }}
+          tags: tag:cd-prd
+      - name: SSH key
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy
+          chmod 600 ~/.ssh/deploy
+      # Only the CD touches /opt/app, so a fast-forward is enough — and it fails
+      # loudly if someone edited the checkout by hand instead of silently wiping it.
+      - name: Pull main and rebuild
+        env:
+          HOST: ${{ secrets.OUTE_SSH_HOST }}
+        run: |
+          ssh -i ~/.ssh/deploy -o StrictHostKeyChecking=no "$HOST" \
+            "lxc exec $CONTAINER -- bash -lc 'cd /opt/app && git fetch origin main && git merge --ff-only FETCH_HEAD && docker compose up -d --build && docker image prune -f'" < /dev/null
+      - name: Health check
+        env:
+          HOST: ${{ secrets.OUTE_SSH_HOST }}
+        run: |
+          ssh -i ~/.ssh/deploy -o StrictHostKeyChecking=no "$HOST" \
+            "lxc exec $CONTAINER -- bash -lc 'cd /opt/app && for i in \$(seq 1 30); do curl -fsS http://localhost:$APP_PORT/ >/dev/null && exit 0; sleep 2; done; docker compose logs --tail=50; exit 1'" < /dev/null
