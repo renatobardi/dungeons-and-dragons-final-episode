@@ -17,6 +17,20 @@ async function walkToObstacle(page: Page): Promise<void> {
   });
 }
 
+/**
+ * Points Bobby back at the obstacle through the hooks. Capturing the pointer makes the browser
+ * report the harness's virtual cursor as one large look, which a real player never produces; the
+ * click tests below are about the button, not about the aim.
+ */
+async function aimAtObstacle(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    const g = window.__game!;
+    const p = g.snapshot().player;
+    g.command({ type: "look", yaw: Math.PI / 2 - p.yaw, pitch: -p.pitch });
+  });
+  await page.waitForFunction(() => Math.abs(window.__game!.snapshot().player.pitch) < 0.05, null, { timeout: 20_000 });
+}
+
 /** Full route through the hooks: break the passage and leave. */
 async function completeRun(page: Page): Promise<void> {
   await walkToObstacle(page);
@@ -160,8 +174,7 @@ test.describe("cenotaph entrance flow", () => {
     await expect(page.locator("body")).toHaveAttribute("data-state", "ready", { timeout: 30_000 });
     await page.click("#play");
     await walkToObstacle(page);
-    // No mouse.move here: play captures the pointer, so pushing the cursor anywhere is a look of
-    // hundreds of pixels that no player performs. The club aims at the crosshair, not at the cursor.
+    await aimAtObstacle(page);
     await page.mouse.down();
     await page.mouse.up();
     await page.waitForTimeout(200);
@@ -226,6 +239,7 @@ test.describe("cenotaph entrance flow", () => {
     await expect(page.locator("body")).toHaveAttribute("data-state", "ready", { timeout: 30_000 });
     await page.click("#play");
     await walkToObstacle(page);
+    await aimAtObstacle(page);
     await page.mouse.down();
     await page.waitForTimeout(300);
     await page.keyboard.press("Escape");
