@@ -83,6 +83,12 @@ test.describe("cenotaph entrance flow", () => {
   });
 
   test("P08: complete the route and restart three times without duplicates or errors", async ({ page }) => {
+    // Three restarts mean building the whole cinematic scene four times: the vault, seven flames, the
+    // generated arms and rubble, and the procedural stone maps. That is ~18 s on a real GPU and around
+    // four times that on the runner's software renderer, so the suite's default minute is not enough
+    // budget for this one test. Nothing here is waiting on a defect — every other step has its own
+    // assertion timeout and would fail on its own if the game stopped responding.
+    test.setTimeout(240_000);
     await expect(page.locator("body")).toHaveAttribute("data-state", "ready", { timeout: 30_000 });
     for (let i = 0; i < 3; i++) {
       await page.click("#play");
@@ -93,7 +99,8 @@ test.describe("cenotaph entrance flow", () => {
       expect(await page.evaluate(() => window.__game!.snapshot().obstacle)).toBe("broken");
 
       await page.click("#restart");
-      await expect(page.locator("body")).toHaveAttribute("data-state", "ready");
+      // a restart throws the scene away and builds it again, which the software renderer does slowly
+      await expect(page.locator("body")).toHaveAttribute("data-state", "ready", { timeout: 30_000 });
       const s = await page.evaluate(() => window.__game!.snapshot());
       expect(s.obstacle).toBe("intact");
       expect(s.alertFired).toBe(false);
