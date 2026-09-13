@@ -399,7 +399,7 @@ export class SceneView {
 
     if (broken) {
       const size = broken.getBoundingInfo().boundingBox.extendSize.scale(2);
-      const heapWidth = 1.05;
+      const heapWidth = 1.5; // enough to read as fallen masonry rather than gravel
       const fit = heapWidth / Math.max(size.x, size.z);
       const jambs: [number, number][] = [
         [cz - doorway.width / 2 + heapWidth / 2, 0.4],

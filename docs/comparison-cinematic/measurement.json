@@ -1,0 +1,41 @@
+{
+  "date": "2026-09-13T03:53:39.885Z",
+  "url": "http://localhost:4173/?debug",
+  "browser": "153.0.8010.36",
+  "backend": "webgpu",
+  "viewport": {
+    "width": 1512,
+    "height": 945
+  },
+  "deviceScaleFactor": 2,
+  "readyMs": 15366,
+  "transferredBytes": 7699951,
+  "seconds": 10,
+  "rows": [
+    {
+      "dpr": 2,
+      "size": [
+        3024,
+        1890
+      ],
+      "avgMs": 8.333833333452542,
+      "p95Ms": 10,
+      "worstMs": 12.100000143051147,
+      "over33": 0,
+      "samples": 1200
+    },
+    {
+      "dpr": 1.5,
+      "size": [
+        2268,
+        1417
+      ],
+      "avgMs": 8.332306411443007,
+      "p95Ms": 9.900000095367432,
+      "worstMs": 13,
+      "over33": 0,
+      "samples": 1201
+    }
+  ],
+  "gpu": null
+}
