@@ -160,9 +160,8 @@ test.describe("cenotaph entrance flow", () => {
     await expect(page.locator("body")).toHaveAttribute("data-state", "ready", { timeout: 30_000 });
     await page.click("#play");
     await walkToObstacle(page);
-    const canvas = page.locator("#game");
-    const box = (await canvas.boundingBox())!;
-    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    // No mouse.move here: play captures the pointer, so pushing the cursor anywhere is a look of
+    // hundreds of pixels that no player performs. The club aims at the crosshair, not at the cursor.
     await page.mouse.down();
     await page.mouse.up();
     await page.waitForTimeout(200);
@@ -227,8 +226,6 @@ test.describe("cenotaph entrance flow", () => {
     await expect(page.locator("body")).toHaveAttribute("data-state", "ready", { timeout: 30_000 });
     await page.click("#play");
     await walkToObstacle(page);
-    const box = (await page.locator("#game").boundingBox())!;
-    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
     await page.mouse.down();
     await page.waitForTimeout(300);
     await page.keyboard.press("Escape");
