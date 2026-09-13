@@ -31,7 +31,13 @@ export class Controls {
   private readonly onBlur = () => this.blur();
   private readonly onVisibility = () => document.hidden && this.blur();
 
-  constructor(private readonly canvas: HTMLCanvasElement, private readonly host: ControlsHost) {
+  constructor(
+    private readonly canvas: HTMLCanvasElement,
+    private readonly host: ControlsHost,
+    /** Browser automation reports its virtual cursor as huge look deltas once the pointer is
+     * captured, so the browser tests run with the capture off and drive the view through commands. */
+    private readonly options: { capturePointer?: boolean } = {},
+  ) {
     window.addEventListener("keydown", this.onKeyDown);
     window.addEventListener("keyup", this.onKeyUp);
     document.addEventListener("pointermove", this.onMouseMove);
@@ -53,6 +59,7 @@ export class Controls {
 
   /** Safari returns void and reports refusal through `pointerlockerror`; Chrome returns a promise. Both paths end in lockRefused(). */
   private requestLock(): void {
+    if (this.options.capturePointer === false) return;
     try {
       const r = this.canvas.requestPointerLock() as unknown;
       if (r instanceof Promise) r.catch(() => this.host.lockRefused());
@@ -90,6 +97,12 @@ export class Controls {
 
   private mouseMove(e: PointerEvent): void {
     if (!this.active || document.pointerLockElement !== this.canvas) return;
+    // The browser recentres the cursor when it captures it and reports that whole jump as the
+    // first movement; obeying it throws the view at the ceiling right after the click.
+    if (this.justLocked) {
+      this.justLocked = false;
+      return;
+    }
     const k = LOOK_BASE * this.sensitivity;
     this.host.send({ type: "look", yaw: e.movementX * k, pitch: -e.movementY * k });
   }
@@ -108,10 +121,14 @@ export class Controls {
   private lockChange(): void {
     const locked = document.pointerLockElement === this.canvas;
     if (this.active && !locked && this.hadLock) this.host.interrupted();
-    if (locked) this.host.lockAcquired();
+    if (locked) {
+      this.justLocked = true;
+      this.host.lockAcquired();
+    }
     this.hadLock = locked;
   }
   private hadLock = false;
+  private justLocked = false;
 
   private blur(): void {
     if (this.active) this.host.interrupted();

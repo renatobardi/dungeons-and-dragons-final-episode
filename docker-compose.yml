@@ -1,0 +1,9 @@
+services:
+  game:
+    build: .
+    image: caverna-do-dragao:local
+    restart: unless-stopped
+    # 3750 is this app's slot in oute-server's inventory (container bobby-prd,
+    # 10.173.117.37). Nginx on the host proxies bobby.oute.pro to it.
+    ports:
+      - "3750:8080"

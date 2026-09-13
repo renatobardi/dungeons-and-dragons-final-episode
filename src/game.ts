@@ -71,7 +71,7 @@ export class Game {
         escape: () => this.pause(),
         lockRefused: () => this.overlay.showLockHint(true),
         lockAcquired: () => this.overlay.showLockHint(false),
-      });
+      }, { capturePointer: !new URLSearchParams(location.search).has("nolock") });
       this.controls.sensitivity = this.settings.sensitivity;
       this.debug = new DebugPanel(backend, {
         onDpr: (v) => {
