@@ -190,11 +190,10 @@ test.describe("cenotaph entrance flow", () => {
     // The press itself carries another virtual-cursor look, so the aim is restored right before the
     // strike leaves: the club swings along the view at the moment the button is released.
     await aimAtObstacle(page);
-    console.log("pre-release", JSON.stringify(await page.evaluate(() => window.__game!.snapshot())));
     await page.mouse.up();
-    await page.waitForTimeout(1000);
-    console.log("post-release", JSON.stringify(await page.evaluate(() => window.__game!.snapshot())));
     await page.waitForFunction(() => window.__game!.snapshot().obstacle === "broken", null, { timeout: 20_000 });
+    // The release carries a look of its own, so the corridor is lined up again before walking it.
+    await aimAtObstacle(page);
     await page.keyboard.down("KeyW");
     await page.waitForFunction(() => window.__game!.snapshot().player.x > 21.2, null, { timeout: 20_000 });
     await page.keyboard.up("KeyW");
