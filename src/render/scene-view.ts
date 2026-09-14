@@ -33,6 +33,7 @@ import { boxFaceUvs } from "./uv";
 import { buildTorch, flicker, type Torch } from "./torch";
 import { UniView } from "./uni-view";
 import { fitScale } from "./fit";
+import { chapelMaterialRole, chapelStoneSources } from "./chapel-materials";
 
 /** Cenotaph kit: the column made in ticket 07 and the painted stone that goes with it. */
 const COLUMN_MODEL_URL = "models/cenotaph/column.glb";
@@ -128,7 +129,7 @@ export class SceneView {
     this.shadow.normalBias = 0.02;
 
     const wallMat = this.stone("wall", STONE_WALL);
-    this.stoneMaterial = wallMat;
+    this.stoneMaterial = this.stone("cutStone", STONE_WALL);
     const floorMat = this.stone("floor", STONE_FLOOR, 9);
     const rubbleMat = this.stone("rubble", RUBBLE, 18);
 
@@ -146,7 +147,7 @@ export class SceneView {
     lid("ceilingW", -30, r.minZ, r.minX, r.maxZ);
     lid("ceilingE", r.maxX, r.minZ, 50, r.maxZ);
 
-    this.chapel = buildChapel(scene, r, wallMat);
+    this.chapel = buildChapel(scene, r, wallMat, this.stoneMaterial);
     // the chapel takes light but casts none: a vault in the shadow map would put the whole room under
     // its own shadow, which is the opposite of what the height is there to show
     for (const m of this.chapel.stone) m.receiveShadows = true;
@@ -296,19 +297,32 @@ export class SceneView {
 
   // --- builders -------------------------------------------------------------
 
-  /**
-   * One masonry material: colour, relief and roughness from the same procedural stone, so the walls
-   * answer a torch the way a carved block does instead of like a printed card.
-   */
+  /** Shared rock colour, with masonry joints on walls and uninterrupted maps on carved stone. */
   private stone(name: string, spec: typeof STONE_WALL, relief = 14): PBRMaterial {
     const mat = new PBRMaterial(name, this.scene);
-    const surface = stoneSurface(this.scene, name, 1024, spec, relief);
-    for (const tex of [surface.albedo, surface.normal, surface.roughness]) {
+    const role = chapelMaterialRole(name);
+    if (role === "cut") {
+      mat.albedoTexture = new Texture(chapelStoneSources.albedo, this.scene);
+      mat.bumpTexture = new Texture(chapelStoneSources.normal, this.scene);
+      mat.metallicTexture = new Texture(chapelStoneSources.arm, this.scene);
+      mat.useRoughnessFromMetallicTextureGreen = true;
+      mat.useMetallnessFromMetallicTextureBlue = true;
+      mat.metallic = 0;
+      mat.roughness = 1;
+      mat.ambientColor = new Color3(0.4, 0.38, 0.45);
+      return mat;
+    }
+    const surface = stoneSurface(this.scene, name, 1024,
+      role === "masonry" ? { ...spec, dabCount: 120, dabSize: [6, 18], cracks: 8 } : spec,
+      role === "masonry" ? 8 : relief,
+    );
+    if (role === "masonry") surface.albedo.dispose();
+    for (const tex of [surface.normal, surface.roughness]) {
       tex.wrapU = Texture.WRAP_ADDRESSMODE;
       tex.wrapV = Texture.WRAP_ADDRESSMODE;
       // every mesh carries UVs measured in metres, so the material itself tiles once
     }
-    mat.albedoTexture = surface.albedo;
+    mat.albedoTexture = role === "masonry" ? new Texture(chapelStoneSources.albedo, this.scene) : surface.albedo;
     mat.bumpTexture = surface.normal;
     mat.metallicTexture = surface.roughness;
     mat.useRoughnessFromMetallicTextureGreen = true;
@@ -545,7 +559,9 @@ export class SceneView {
     const fit = fitScale({ x: size.x, y: size.y, z: size.z }, COLUMN_SIZE);
     source.scaling = new Vector3(fit.x, fit.y, fit.z);
 
-    this.level.columns.filter(({ x, z }) => !(z < 13 && (x === 12.5 || x === 17.5))).forEach(({ x, z }, i) => {
+    // The room uses continuous floor-to-vault piers built with the chapel. Kit columns remain only
+    // in the low portico and corridor, where four metres is the real ceiling height.
+    this.level.columns.filter(({ x }) => x < this.level.room.minX).forEach(({ x, z }, i) => {
       const piece = i === 0 ? (source as Mesh) : (source as Mesh).createInstance(`col${i}`);
       piece.position = new Vector3(x, COLUMN_SIZE.y / 2, z);
       this.shadow.addShadowCaster(piece as Mesh);

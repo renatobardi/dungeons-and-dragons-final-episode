@@ -119,10 +119,8 @@ for x in [-2.5,2.5]:
     # Exact existing column footprint: width <= .8 m, height 4 m.
     box('Column square plinth',(x,.44,.12),(.78,.78,.24),stone,.025)
     profile=[(.24,.36),(.29,.37),(.35,.33),(.40,.34),(.45,.28),(.52,.27),
-             (.96,.267),(.97,.254),(.985,.267),(1.42,.263),(1.43,.25),(1.445,.263),
-             (1.88,.257),(1.89,.244),(1.905,.257),(2.34,.251),(2.35,.238),(2.365,.251),
-             (2.85,.245),(2.88,.28),(2.94,.29),(3.00,.27),(3.48,.29),
-             (3.53,.33),(3.60,.36),(3.67,.37),(3.73,.34),(3.79,.38),(3.9,.38),(4,.34)]
+             (1.8,.255),(3.1,.25),(4.4,.255),(5.7,.25),(7.0,.255),(8.28,.25),
+             (8.35,.29),(8.43,.33),(8.52,.38),(8.64,.42),(8.78,.39),(8.90,.43),(9,.37)]
     lathe('Carved column',x,.44,profile)
     # Pointed carved arcades and leaf forms around the capital; geometry, not a painted motif.
     for i in range(8):
@@ -130,7 +128,7 @@ for x in [-2.5,2.5]:
         pts=[]
         for j in range(17):
             t=-1+2*j/16;a=theta+t*.30
-            z=3.07+.35*(1-abs(t))**.7;r=.295
+            z=8.38+.35*(1-abs(t))**.7;r=.34
             pts.append((x+r*math.cos(a),.44+r*math.sin(a),z))
         tube('Capital carved arcade',pts,.015)
         for sign in [-1,1]:
@@ -138,7 +136,7 @@ for x in [-2.5,2.5]:
             for j in range(11):
                 t=j/10;a=theta+sign*.18*math.sin(math.pi*t)
                 r=.300+.035*math.sin(math.pi*t)
-                pts.append((x+r*math.cos(a),.44+r*math.sin(a),3.08+.20*t))
+                pts.append((x+r*math.cos(a),.44+r*math.sin(a),8.40+.25*t))
             tube('Capital leaf',pts,.012)
     # Solid curled leaves give the capital depth and a readable carved silhouette.
     for i in range(8):
@@ -152,7 +150,7 @@ for x in [-2.5,2.5]:
                 u=-1+col/3
                 a=angle+u*width/.30
                 r=radius+.027*(1-u*u)*math.sin(math.pi*t)
-                verts.append((x+r*math.cos(a),.44+r*math.sin(a),3.02+.49*t))
+                verts.append((x+r*math.cos(a),.44+r*math.sin(a),8.34+.49*t))
         for row in range(12):
             for col in range(6):
                 k=row*7+col;faces.append((k,k+1,k+8,k+7))
@@ -163,9 +161,6 @@ for x in [-2.5,2.5]:
         bpy.ops.object.modifier_apply(modifier=solid.name)
         finish(leaf,stone)
         for face in leaf.data.polygons:face.use_smooth=True
-    # Bundled shafts continue upwards, framing the high window.
-    for offset in [-.16,0,.16]:
-        lathe('Upper bundled shaft',x+offset,.12,[(4,.065),(8.96,.065)])
 
 # Load-bearing pointed arch: separate wedge stones with recessed mortar joints.
 def arch_height(t):

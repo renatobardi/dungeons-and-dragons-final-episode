@@ -1,5 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { archProfile, groinHeight, ribCurve } from "../../src/render/vault";
+import { archProfile, chapelColumnSections, groinHeight, ribCurve } from "../../src/render/vault";
+
+describe("chapel column profile", () => {
+  it("runs continuously from the floor to the vault with ornaments only at its ends", () => {
+    const sections = chapelColumnSections(9);
+    expect(sections.map(({ kind }) => kind)).toEqual(["base", "shaft", "capital"]);
+    expect(sections[0]!.bottom).toBe(0);
+    expect(sections.at(-1)!.top).toBe(9);
+    for (let i = 1; i < sections.length; i++) expect(sections[i]!.bottom).toBe(sections[i - 1]!.top);
+  });
+});
 
 describe("pointed arch profile", () => {
   it("springs from zero at both haunches and peaks at the crown", () => {
