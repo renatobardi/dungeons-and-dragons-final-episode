@@ -1,9 +1,10 @@
 import { Scene } from "@babylonjs/core/scene";
 import { Color3, Color4 } from "@babylonjs/core/Maths/math.color";
-import { Vector3, Vector4 } from "@babylonjs/core/Maths/math.vector";
+import { Quaternion, Vector3, Vector4 } from "@babylonjs/core/Maths/math.vector";
 import { UniversalCamera } from "@babylonjs/core/Cameras/universalCamera";
 import { HemisphericLight } from "@babylonjs/core/Lights/hemisphericLight";
 import { DirectionalLight } from "@babylonjs/core/Lights/directionalLight";
+import { SpotLight } from "@babylonjs/core/Lights/spotLight";
 import { PointLight } from "@babylonjs/core/Lights/pointLight";
 import { ShadowGenerator } from "@babylonjs/core/Lights/Shadows/shadowGenerator";
 import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder";
@@ -197,7 +198,7 @@ export class SceneView {
 
     this.uni = new UniView(scene, this.shadow);
     this.hands = new HandsView(scene, this.camera);
-    this.ready = Promise.all([this.uni.loaded, this.hands.loaded, this.loadColumns(), this.loadObstacle(), this.loadDecor()]).then(() => undefined);
+    this.ready = Promise.all([this.uni.loaded, this.hands.loaded, this.loadColumns(), this.loadObstacle(), this.loadDecor(), this.loadChapelStudy()]).then(() => undefined);
 
     this.pipeline = new DefaultRenderingPipeline("post", true, scene, [this.camera]);
     this.pipeline.bloomEnabled = true;
@@ -453,7 +454,7 @@ export class SceneView {
       const size = statue.getBoundingInfo().boundingBox.extendSize.scale(2);
       const up = 2.2 / size.y;
       statue.scaling = new Vector3(up, up, up);
-      STATUE_SPOTS.forEach(([x, z, facing], i) => {
+      STATUE_SPOTS.filter(([, z]) => z > 17).forEach(([x, z, facing], i) => {
         const piece = i === 0 ? (statue as Mesh) : (statue as Mesh).createInstance(`statue${i}`);
         piece.rotationQuaternion = null;
         piece.rotation.y = facing;
@@ -461,6 +462,58 @@ export class SceneView {
         this.shadow.addShadowCaster(piece as Mesh);
       });
     }
+  }
+
+  /** One authored south-wall bay for visual approval before extending the finish. */
+  private async loadChapelStudy(): Promise<void> {
+    const container = await loadAssetContainerAsync("models/cenotaph/chapel-study.glb", this.scene);
+    if (this.scene.isDisposed) {
+      container.dispose();
+      return;
+    }
+    container.addAllToScene();
+    for (const root of container.rootNodes) {
+      if (root instanceof TransformNode) {
+        root.rotationQuaternion = Quaternion.Identity();
+        root.scaling.set(1, 1, -1);
+        root.position.set(15, 0, 12.01);
+      }
+    }
+    for (const material of container.materials) {
+      if (material instanceof PBRMaterial) {
+        material.maxSimultaneousLights = 4;
+        material.albedoColor = material.name.includes("ashlar")
+          ? new Color3(0.65, 0.78, 0.95) : new Color3(0.95, 1.0, 1.1);
+      }
+    }
+    const meshes = container.meshes.filter((mesh) => mesh.getTotalVertices() > 0);
+    for (const mesh of meshes) {
+      mesh.receiveShadows = true;
+      this.shadow.addShadowCaster(mesh as Mesh);
+    }
+    const iron = new PBRMaterial("studySconceIron", this.scene);
+    iron.albedoColor = new Color3(0.09, 0.075, 0.06);
+    iron.metallic = 0.8;
+    iron.roughness = 0.7;
+    iron.maxSimultaneousLights = 3;
+    const torch = buildTorch(this.scene, new Vector3(13.15, 2.55, 12.8), iron, 7, { lit: true });
+    torch.light.includedOnlyMeshes = [...meshes, ...torch.iron];
+    torch.light.renderPriority = 1;
+    const shadows = new ShadowGenerator(1024, torch.light);
+    shadows.usePoissonSampling = true;
+    shadows.bias = 0.002;
+    shadows.normalBias = 0.025;
+    for (const mesh of meshes) shadows.addShadowCaster(mesh as Mesh);
+    this.torches.push(torch);
+    // Replace this bay's opaque cone with actual directed light on the carved surfaces.
+    this.chapel.shafts[0]!.setEnabled(false);
+    const daylight = new SpotLight("studyWindowLight", new Vector3(15, 6.8, 16), new Vector3(0, -1, -0.8), Math.PI / 2, 2, this.scene);
+    daylight.diffuse = new Color3(0.68, 0.79, 1);
+    daylight.intensity = 120;
+    daylight.range = 13;
+    daylight.renderPriority = 2;
+    daylight.includedOnlyMeshes = meshes;
+
   }
 
   private async loadColumns(): Promise<void> {
@@ -486,7 +539,7 @@ export class SceneView {
     const fit = fitScale({ x: size.x, y: size.y, z: size.z }, COLUMN_SIZE);
     source.scaling = new Vector3(fit.x, fit.y, fit.z);
 
-    this.level.columns.forEach(({ x, z }, i) => {
+    this.level.columns.filter(({ x, z }) => !(z < 13 && (x === 12.5 || x === 17.5))).forEach(({ x, z }, i) => {
       const piece = i === 0 ? (source as Mesh) : (source as Mesh).createInstance(`col${i}`);
       piece.position = new Vector3(x, COLUMN_SIZE.y / 2, z);
       this.shadow.addShadowCaster(piece as Mesh);
