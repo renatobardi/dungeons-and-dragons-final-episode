@@ -19,6 +19,23 @@ export interface BayProfile {
 /** A point on the vault: bay coordinate u, world height y, bay coordinate v. */
 export type RibPoint = [number, number, number];
 
+export interface ColumnSection {
+  kind: "base" | "shaft" | "capital";
+  bottom: number;
+  top: number;
+}
+
+/** A chapel pier has one base, one uninterrupted shaft and one capital at the vault springing. */
+export function chapelColumnSections(springing: number): ColumnSection[] {
+  const baseTop = 0.45;
+  const capitalHeight = 0.65;
+  return [
+    { kind: "base", bottom: 0, top: baseTop },
+    { kind: "shaft", bottom: baseTop, top: springing - capitalHeight },
+    { kind: "capital", bottom: springing - capitalHeight, top: springing },
+  ];
+}
+
 /**
  * Height of a two-centred (pointed) arch over the span -1..1, normalised to 1 at the crown.
  *

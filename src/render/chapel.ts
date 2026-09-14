@@ -11,7 +11,7 @@ import { DynamicTexture } from "@babylonjs/core/Materials/Textures/dynamicTextur
 import { ParticleSystem } from "@babylonjs/core/Particles/particleSystem";
 
 import type { Box } from "../sim/geometry";
-import { archProfile, groinHeight, ribCurve, type BayProfile } from "./vault";
+import { archProfile, chapelColumnSections, groinHeight, ribCurve, type BayProfile } from "./vault";
 import { boxFaceUvs } from "./uv";
 
 /**
@@ -57,10 +57,10 @@ export interface ChapelParts {
 }
 
 /**
- * Builds the chapel over `room`. `stoneMaterial` is the same masonry the walls use, so the vault reads
- * as one building; the shafts get their own additive material and are returned for animation.
+ * Builds the chapel over `room`. Walls use coursed masonry while ribs and piers use uninterrupted cut
+ * stone, both from the same quarry maps; shafts use their own additive material.
  */
-export function buildChapel(scene: Scene, room: Box, stoneMaterial: Material): ChapelParts {
+export function buildChapel(scene: Scene, room: Box, masonryMaterial: Material, cutStoneMaterial: Material): ChapelParts {
   const root = new TransformNode("chapel", scene);
   const stone: Mesh[] = [];
   const cx = (room.minX + room.maxX) / 2;
@@ -69,7 +69,13 @@ export function buildChapel(scene: Scene, room: Box, stoneMaterial: Material): C
   const halfZ = (room.maxZ - room.minZ) / 2;
 
   const piece = (mesh: Mesh): Mesh => {
-    mesh.material = stoneMaterial;
+    mesh.material = masonryMaterial;
+    mesh.parent = root;
+    stone.push(mesh);
+    return mesh;
+  };
+  const carved = (mesh: Mesh): Mesh => {
+    mesh.material = cutStoneMaterial;
     mesh.parent = root;
     stone.push(mesh);
     return mesh;
@@ -85,9 +91,9 @@ export function buildChapel(scene: Scene, room: Box, stoneMaterial: Material): C
   for (const [i, side] of sides.entries()) {
     buildUpperWall(scene, side, i, root, piece);
   }
-  buildPiers(scene, room, piece);
+  buildPiers(scene, room, carved);
   piece(webMesh(scene, cx, cz, halfX, halfZ));
-  buildRibs(scene, cx, cz, halfX, halfZ, piece);
+  buildRibs(scene, cx, cz, halfX, halfZ, carved);
   const shafts = buildShafts(scene, sides, root, cx, cz);
 
   return { root, stone, shafts };
@@ -142,31 +148,39 @@ function buildUpperWall(scene: Scene, side: Side, index: number, root: Transform
   }
 }
 
-/** The four piers that carry the vault, rising from the room's corner columns to the springing. */
+/** Continuous piers from floor to springing; the approved south pair comes from the authored bay. */
 function buildPiers(scene: Scene, room: Box, piece: (m: Mesh) => Mesh): void {
   const spots: [number, number][] = [
     [room.minX + 0.45, room.minZ + 0.5],
     [room.minX + 0.45, room.maxZ - 0.5],
     [room.maxX - 0.45, room.minZ + 0.5],
     [room.maxX - 0.45, room.maxZ - 0.5],
+    [room.minX + 2.5, room.maxZ - 0.45],
+    [room.maxX - 2.5, room.maxZ - 0.45],
   ];
+  const sections = chapelColumnSections(BAY.springing);
   for (const [x, z] of spots) {
-    const shaft = MeshBuilder.CreateCylinder("pierShaft", {
-      height: BAY.springing - COLLIDER_TOP,
-      diameter: 0.7,
-      tessellation: 12,
-    }, scene);
-    shaft.position = new Vector3(x, (COLLIDER_TOP + BAY.springing) / 2, z);
-    piece(shaft);
-
-    const capital = MeshBuilder.CreateCylinder("pierCapital", {
-      height: 0.45,
-      diameterTop: 1.15,
-      diameterBottom: 0.8,
-      tessellation: 12,
-    }, scene);
-    capital.position = new Vector3(x, BAY.springing - 0.2, z);
-    piece(capital);
+    for (const section of sections) {
+      const height = section.top - section.bottom;
+      if (section.kind === "base") {
+        const base = MeshBuilder.CreateCylinder("pierBase", { height, diameterTop: 0.82, diameterBottom: 1.05, tessellation: 16 }, scene);
+        base.position = new Vector3(x, section.bottom + height / 2, z);
+        piece(base);
+      } else if (section.kind === "capital") {
+        const capital = MeshBuilder.CreateCylinder("pierCapital", { height, diameterTop: 1.15, diameterBottom: 0.72, tessellation: 16 }, scene);
+        capital.position = new Vector3(x, section.bottom + height / 2, z);
+        piece(capital);
+      } else {
+        const shaft = MeshBuilder.CreateCylinder("pierShaft", { height, diameter: 0.7, tessellation: 20 }, scene);
+        shaft.position = new Vector3(x, section.bottom + height / 2, z);
+        piece(shaft);
+        for (const angle of [0, Math.PI / 2, Math.PI, Math.PI * 1.5]) {
+          const colonette = MeshBuilder.CreateCylinder("pierColonette", { height, diameter: 0.13, tessellation: 10 }, scene);
+          colonette.position = new Vector3(x + Math.cos(angle) * 0.34, section.bottom + height / 2, z + Math.sin(angle) * 0.34);
+          piece(colonette);
+        }
+      }
+    }
   }
 }
 

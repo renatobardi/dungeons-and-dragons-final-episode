@@ -62,7 +62,7 @@ export class Game {
       this.backend = backend;
       this.applyDpr();
       this.overlay.setLoading(0.5, "Erguendo o Cenotáfio…");
-      this.view = new SceneView(engine, CENOTAPH_ENTRANCE, this.quality);
+      this.view = SceneView.create(engine, CENOTAPH_ENTRANCE, this.quality);
       await this.view.ready;
       await this.view.scene.whenReadyAsync();
       this.controls = new Controls(this.canvas, {
@@ -128,7 +128,7 @@ export class Game {
     this.overlay.reset();
     this.view?.dispose();
     this.sim = new Simulation(CENOTAPH_ENTRANCE);
-    this.view = new SceneView(this.engine, CENOTAPH_ENTRANCE, this.quality);
+    this.view = SceneView.create(this.engine, CENOTAPH_ENTRANCE, this.quality);
     this.accumulator = 0;
     this.sim.match.loaded();
     this.overlay.showState("ready");

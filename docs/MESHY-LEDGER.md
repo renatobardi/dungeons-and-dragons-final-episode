@@ -11,8 +11,8 @@ Registro único e compartilhado dos tickets [#25](https://github.com/renatobardi
 para comprar créditos. O saldo da conta é maior que o teto — o teto é o limite, não o saldo.
 
 - Saldo da conta na abertura do registro (13/09/2026): **2847 créditos**
-- Consumido nesta rodada: **180**
-- Restante do teto: **320**
+- Consumido nesta rodada: **200**
+- Restante do teto: **300**
 
 ## Tabela de preços aplicada
 
@@ -89,3 +89,7 @@ luz como plástico moldado. Duas rotas continuam abertas e nenhuma foi gasta:
 
 A decisão de qual rota seguir é do produtor. Não tratar a fase como aprovada enquanto a Uni estiver
 neste estado.
+
+## Operação 7 — retomada do #27
+
+13/09/2026: gárgula cinematográfica a partir da referência aprovada 05, isolada em `assets/refs/chapel-gargoyle.png`. Meshy 7 padrão, sem textura e sem remesh; acabamento e materiais no Blender. Consumo confirmado pela API (`consumed_credits`): 20 créditos. Reservados antes do envio; tarefa `01a09d63-894b-741b-ab1e-512787cc86d5` concluída; malha baixada para acabamento no Blender. A base antiga de 4346 triângulos não sustenta o detalhe da referência.

@@ -1,9 +1,10 @@
 import { Scene } from "@babylonjs/core/scene";
 import { Color3, Color4 } from "@babylonjs/core/Maths/math.color";
-import { Vector3, Vector4 } from "@babylonjs/core/Maths/math.vector";
+import { Quaternion, Vector3, Vector4 } from "@babylonjs/core/Maths/math.vector";
 import { UniversalCamera } from "@babylonjs/core/Cameras/universalCamera";
 import { HemisphericLight } from "@babylonjs/core/Lights/hemisphericLight";
 import { DirectionalLight } from "@babylonjs/core/Lights/directionalLight";
+import { SpotLight } from "@babylonjs/core/Lights/spotLight";
 import { PointLight } from "@babylonjs/core/Lights/pointLight";
 import { ShadowGenerator } from "@babylonjs/core/Lights/Shadows/shadowGenerator";
 import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder";
@@ -32,6 +33,7 @@ import { boxFaceUvs } from "./uv";
 import { buildTorch, flicker, type Torch } from "./torch";
 import { UniView } from "./uni-view";
 import { fitScale } from "./fit";
+import { chapelMaterialRole, chapelStoneSources } from "./chapel-materials";
 
 /** Cenotaph kit: the column made in ticket 07 and the painted stone that goes with it. */
 const COLUMN_MODEL_URL = "models/cenotaph/column.glb";
@@ -67,7 +69,8 @@ export class SceneView {
   readonly scene: Scene;
   readonly camera: UniversalCamera;
   /** Resolves when every asset the scene loads is in place. */
-  readonly ready: Promise<void>;
+  private assetsReady!: Promise<void>;
+  get ready(): Promise<void> { return this.assetsReady; }
   private readonly uni: UniView;
   private readonly hands: HandsView;
   private readonly obstacleIntact: TransformNode;
@@ -85,7 +88,13 @@ export class SceneView {
   private elapsed = 0;
   private quality: QualitySettings;
 
-  constructor(engine: AbstractEngine, readonly level: LevelDefinition, quality: QualitySettings) {
+  static create(engine: AbstractEngine, level: LevelDefinition, quality: QualitySettings): SceneView {
+    const view = new SceneView(engine, level, quality);
+    view.assetsReady = Promise.all([view.uni.loaded, view.hands.loaded, view.loadColumns(), view.loadObstacle(), view.loadDecor(), view.loadChapelStudy()]).then(() => undefined);
+    return view;
+  }
+
+  private constructor(engine: AbstractEngine, readonly level: LevelDefinition, quality: QualitySettings) {
     this.quality = { ...quality };
     const scene = new Scene(engine);
     this.scene = scene;
@@ -120,7 +129,7 @@ export class SceneView {
     this.shadow.normalBias = 0.02;
 
     const wallMat = this.stone("wall", STONE_WALL);
-    this.stoneMaterial = wallMat;
+    this.stoneMaterial = this.stone("cutStone", STONE_WALL);
     const floorMat = this.stone("floor", STONE_FLOOR, 9);
     const rubbleMat = this.stone("rubble", RUBBLE, 18);
 
@@ -138,7 +147,7 @@ export class SceneView {
     lid("ceilingW", -30, r.minZ, r.minX, r.maxZ);
     lid("ceilingE", r.maxX, r.minZ, 50, r.maxZ);
 
-    this.chapel = buildChapel(scene, r, wallMat);
+    this.chapel = buildChapel(scene, r, wallMat, this.stoneMaterial);
     // the chapel takes light but casts none: a vault in the shadow map would put the whole room under
     // its own shadow, which is the opposite of what the height is there to show
     for (const m of this.chapel.stone) m.receiveShadows = true;
@@ -197,7 +206,6 @@ export class SceneView {
 
     this.uni = new UniView(scene, this.shadow);
     this.hands = new HandsView(scene, this.camera);
-    this.ready = Promise.all([this.uni.loaded, this.hands.loaded, this.loadColumns(), this.loadObstacle(), this.loadDecor()]).then(() => undefined);
 
     this.pipeline = new DefaultRenderingPipeline("post", true, scene, [this.camera]);
     this.pipeline.bloomEnabled = true;
@@ -289,19 +297,32 @@ export class SceneView {
 
   // --- builders -------------------------------------------------------------
 
-  /**
-   * One masonry material: colour, relief and roughness from the same procedural stone, so the walls
-   * answer a torch the way a carved block does instead of like a printed card.
-   */
+  /** Shared rock colour, with masonry joints on walls and uninterrupted maps on carved stone. */
   private stone(name: string, spec: typeof STONE_WALL, relief = 14): PBRMaterial {
     const mat = new PBRMaterial(name, this.scene);
-    const surface = stoneSurface(this.scene, name, 1024, spec, relief);
-    for (const tex of [surface.albedo, surface.normal, surface.roughness]) {
+    const role = chapelMaterialRole(name);
+    if (role === "cut") {
+      mat.albedoTexture = new Texture(chapelStoneSources.albedo, this.scene);
+      mat.bumpTexture = new Texture(chapelStoneSources.normal, this.scene);
+      mat.metallicTexture = new Texture(chapelStoneSources.arm, this.scene);
+      mat.useRoughnessFromMetallicTextureGreen = true;
+      mat.useMetallnessFromMetallicTextureBlue = true;
+      mat.metallic = 0;
+      mat.roughness = 1;
+      mat.ambientColor = new Color3(0.4, 0.38, 0.45);
+      return mat;
+    }
+    const surface = stoneSurface(this.scene, name, 1024,
+      role === "masonry" ? { ...spec, dabCount: 120, dabSize: [6, 18], cracks: 8 } : spec,
+      role === "masonry" ? 8 : relief,
+    );
+    if (role === "masonry") surface.albedo.dispose();
+    for (const tex of [surface.normal, surface.roughness]) {
       tex.wrapU = Texture.WRAP_ADDRESSMODE;
       tex.wrapV = Texture.WRAP_ADDRESSMODE;
       // every mesh carries UVs measured in metres, so the material itself tiles once
     }
-    mat.albedoTexture = surface.albedo;
+    mat.albedoTexture = role === "masonry" ? new Texture(chapelStoneSources.albedo, this.scene) : surface.albedo;
     mat.bumpTexture = surface.normal;
     mat.metallicTexture = surface.roughness;
     mat.useRoughnessFromMetallicTextureGreen = true;
@@ -453,7 +474,7 @@ export class SceneView {
       const size = statue.getBoundingInfo().boundingBox.extendSize.scale(2);
       const up = 2.2 / size.y;
       statue.scaling = new Vector3(up, up, up);
-      STATUE_SPOTS.forEach(([x, z, facing], i) => {
+      STATUE_SPOTS.filter(([, z]) => z > 17).forEach(([x, z, facing], i) => {
         const piece = i === 0 ? (statue as Mesh) : (statue as Mesh).createInstance(`statue${i}`);
         piece.rotationQuaternion = null;
         piece.rotation.y = facing;
@@ -461,6 +482,58 @@ export class SceneView {
         this.shadow.addShadowCaster(piece as Mesh);
       });
     }
+  }
+
+  /** One authored south-wall bay for visual approval before extending the finish. */
+  private async loadChapelStudy(): Promise<void> {
+    const container = await loadAssetContainerAsync("models/cenotaph/chapel-study.glb", this.scene);
+    if (this.scene.isDisposed) {
+      container.dispose();
+      return;
+    }
+    container.addAllToScene();
+    for (const root of container.rootNodes) {
+      if (root instanceof TransformNode) {
+        root.rotationQuaternion = Quaternion.Identity();
+        root.scaling.set(1, 1, -1);
+        root.position.set(15, 0, 12.01);
+      }
+    }
+    for (const material of container.materials) {
+      if (material instanceof PBRMaterial) {
+        material.maxSimultaneousLights = 4;
+        material.albedoColor = material.name.includes("ashlar")
+          ? new Color3(0.65, 0.78, 0.95) : new Color3(0.95, 1.0, 1.1);
+      }
+    }
+    const meshes = container.meshes.filter((mesh) => mesh.getTotalVertices() > 0);
+    for (const mesh of meshes) {
+      mesh.receiveShadows = true;
+      this.shadow.addShadowCaster(mesh as Mesh);
+    }
+    const iron = new PBRMaterial("studySconceIron", this.scene);
+    iron.albedoColor = new Color3(0.09, 0.075, 0.06);
+    iron.metallic = 0.8;
+    iron.roughness = 0.7;
+    iron.maxSimultaneousLights = 3;
+    const torch = buildTorch(this.scene, new Vector3(13.15, 2.55, 12.8), iron, 7, { lit: true });
+    torch.light.includedOnlyMeshes = [...meshes, ...torch.iron];
+    torch.light.renderPriority = 1;
+    const shadows = new ShadowGenerator(1024, torch.light);
+    shadows.usePoissonSampling = true;
+    shadows.bias = 0.002;
+    shadows.normalBias = 0.025;
+    for (const mesh of meshes) shadows.addShadowCaster(mesh as Mesh);
+    this.torches.push(torch);
+    // Replace this bay's opaque cone with actual directed light on the carved surfaces.
+    this.chapel.shafts[0]!.setEnabled(false);
+    const daylight = new SpotLight("studyWindowLight", new Vector3(15, 6.8, 16), new Vector3(0, -1, -0.8), Math.PI / 2, 2, this.scene);
+    daylight.diffuse = new Color3(0.68, 0.79, 1);
+    daylight.intensity = 120;
+    daylight.range = 13;
+    daylight.renderPriority = 2;
+    daylight.includedOnlyMeshes = meshes;
+
   }
 
   private async loadColumns(): Promise<void> {
@@ -486,7 +559,9 @@ export class SceneView {
     const fit = fitScale({ x: size.x, y: size.y, z: size.z }, COLUMN_SIZE);
     source.scaling = new Vector3(fit.x, fit.y, fit.z);
 
-    this.level.columns.forEach(({ x, z }, i) => {
+    // The room uses continuous floor-to-vault piers built with the chapel. Kit columns remain only
+    // in the low portico and corridor, where four metres is the real ceiling height.
+    this.level.columns.filter(({ x }) => x < this.level.room.minX).forEach(({ x, z }, i) => {
       const piece = i === 0 ? (source as Mesh) : (source as Mesh).createInstance(`col${i}`);
       piece.position = new Vector3(x, COLUMN_SIZE.y / 2, z);
       this.shadow.addShadowCaster(piece as Mesh);

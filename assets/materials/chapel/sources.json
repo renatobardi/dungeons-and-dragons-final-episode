@@ -1,0 +1,49 @@
+{
+  "license": "CC0",
+  "licenseUrl": "https://polyhaven.com/license",
+  "provider": "Powered by Poly Haven",
+  "files": [
+    {
+      "asset": "monastery_stone_floor",
+      "map": "Diffuse",
+      "size": 3021140,
+      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/monastery_stone_floor/monastery_stone_floor_diff_2k.jpg",
+      "md5": "35420aa52b8257920b1d7566fb80ab4d"
+    },
+    {
+      "asset": "monastery_stone_floor",
+      "map": "nor_gl",
+      "size": 4248820,
+      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/monastery_stone_floor/monastery_stone_floor_nor_gl_2k.jpg",
+      "md5": "68fe9fe33ed384c0a0f45b57f642e0a9"
+    },
+    {
+      "asset": "monastery_stone_floor",
+      "map": "arm",
+      "size": 2331525,
+      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/monastery_stone_floor/monastery_stone_floor_arm_2k.jpg",
+      "md5": "43ddeddf503356eb6ddcabd73cb3c35d"
+    },
+    {
+      "asset": "rock_surface",
+      "map": "Diffuse",
+      "size": 3750802,
+      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/rock_surface/rock_surface_diff_2k.jpg",
+      "md5": "2d4912a91f73f08ed11734c044cd83b6"
+    },
+    {
+      "asset": "rock_surface",
+      "map": "nor_gl",
+      "size": 4709620,
+      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/rock_surface/rock_surface_nor_gl_2k.jpg",
+      "md5": "6a7a2005834232c854cf907b22e67e42"
+    },
+    {
+      "asset": "rock_surface",
+      "map": "arm",
+      "size": 3049455,
+      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/rock_surface/rock_surface_arm_2k.jpg",
+      "md5": "5c6f1ca72f2a2c5023d109c8d9d03af7"
+    }
+  ]
+}
