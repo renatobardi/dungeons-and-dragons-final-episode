@@ -32,7 +32,6 @@ def material(name, asset):
 
 stone=material('Chapel cut limestone','rock_surface')
 wall=material('Chapel weathered ashlar','rock_surface')
-floor=material('Chapel worn paving','monastery_stone_floor')
 iron=bpy.data.materials.new('Chapel forged iron');iron.use_nodes=True
 shader=iron.node_tree.nodes.get('Principled BSDF')
 shader.inputs['Base Color'].default_value=(.09,.075,.06,1)
@@ -221,14 +220,9 @@ for obj in statues:
 box('Sconce backplate',(-1.85,.18,2.28),(.15,.08,.45),iron,.015)
 tube('Sconce arm',[(-1.85,.20,2.15),(-1.85,.40,2.10),(-1.85,.78,2.25)],.035,iron)
 
-# Thin paving overlay: visual finish only, no new step or collision.
-for row in range(4):
-    for col in range(8):
-        box('Worn paving',(-2.625+col*.75,.45+row*.72,-.005),(.737,.707,.02),floor,.007)
-
 bpy.ops.object.select_all(action='SELECT')
-# Merge by material to keep the detailed bay to four draw calls.
-for mat in [stone,wall,floor,iron]:
+# Merge by material to keep the detailed bay to three draw calls.
+for mat in [stone,wall,iron]:
     group=[o for o in bpy.context.scene.objects if o.type=='MESH' and o.data.materials and o.data.materials[0]==mat]
     bpy.ops.object.select_all(action='DESELECT')
     for o in group:o.select_set(True)
