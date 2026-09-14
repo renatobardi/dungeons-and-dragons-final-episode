@@ -68,7 +68,8 @@ export class SceneView {
   readonly scene: Scene;
   readonly camera: UniversalCamera;
   /** Resolves when every asset the scene loads is in place. */
-  readonly ready: Promise<void>;
+  private assetsReady!: Promise<void>;
+  get ready(): Promise<void> { return this.assetsReady; }
   private readonly uni: UniView;
   private readonly hands: HandsView;
   private readonly obstacleIntact: TransformNode;
@@ -86,7 +87,13 @@ export class SceneView {
   private elapsed = 0;
   private quality: QualitySettings;
 
-  constructor(engine: AbstractEngine, readonly level: LevelDefinition, quality: QualitySettings) {
+  static create(engine: AbstractEngine, level: LevelDefinition, quality: QualitySettings): SceneView {
+    const view = new SceneView(engine, level, quality);
+    view.assetsReady = Promise.all([view.uni.loaded, view.hands.loaded, view.loadColumns(), view.loadObstacle(), view.loadDecor(), view.loadChapelStudy()]).then(() => undefined);
+    return view;
+  }
+
+  private constructor(engine: AbstractEngine, readonly level: LevelDefinition, quality: QualitySettings) {
     this.quality = { ...quality };
     const scene = new Scene(engine);
     this.scene = scene;
@@ -198,7 +205,6 @@ export class SceneView {
 
     this.uni = new UniView(scene, this.shadow);
     this.hands = new HandsView(scene, this.camera);
-    this.ready = Promise.all([this.uni.loaded, this.hands.loaded, this.loadColumns(), this.loadObstacle(), this.loadDecor(), this.loadChapelStudy()]).then(() => undefined);
 
     this.pipeline = new DefaultRenderingPipeline("post", true, scene, [this.camera]);
     this.pipeline.bloomEnabled = true;

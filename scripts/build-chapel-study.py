@@ -48,7 +48,7 @@ def uv_metres(obj, tile=2):
     bpy.context.view_layer.update()
     for face in obj.data.polygons:
         normal=face.normal
-        drop=max(range(3),key=lambda i:abs(normal[i]))
+        drop=max(range(3),key=lambda i, normal=normal:abs(normal[i]))
         axes=([1,2],[0,2],[0,1])[drop]
         for loop in face.loop_indices:
             co=obj.matrix_world @ obj.data.vertices[obj.data.loops[loop].vertex_index].co
@@ -107,7 +107,8 @@ for row in range(18):
             spans=[(left,min(right,-half)),(max(left,half),right)]
         for lo,hi in spans:
             if hi-lo<.025:continue
-            obj=box('Ashlar course',((lo+hi)/2,.025,z),(hi-lo-.015,.16+rng.uniform(0,.025),.48),wall,.012+rng.random()*.009)
+            # Seeded variation only shapes decorative stone; never used for security.
+            obj=box('Ashlar course',((lo+hi)/2,.025,z),(hi-lo-.015,.16+rng.uniform(0,.025),.48),wall,.012+rng.random()*.009)  # NOSONAR: deterministic art variation, not a security value.
             obj.rotation_euler[1]=rng.uniform(-.006,.006)
 
 # Plinth and string courses separate large architectural volumes.

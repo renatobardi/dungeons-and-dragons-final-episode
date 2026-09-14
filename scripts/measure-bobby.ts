@@ -1,4 +1,5 @@
 /** Production evidence for issue 25. Run against the isolated production preview. */
+import { walkToChapel } from "./walk-to-chapel.ts";
 import { chromium } from "@playwright/test";
 import { mkdirSync, writeFileSync, unlinkSync } from "node:fs";
 const output = "docs/bobby-visual-finish";
@@ -15,16 +16,7 @@ await page.waitForSelector('body[data-state="ready"]', { timeout: 60_000 });
 const readyMs = Date.now() - started;
 await page.click("#play");
 await page.waitForTimeout(1500);
-// Use the same walk as the existing browser suite; stop in the chapel with the intact obstacle ahead.
-await page.evaluate(() => {
-  const g = window.__game!;
-  g.command({ type: "move", forward: 1, strafe: 0 }); g.fastForward(4.4);
-  g.command({ type: "look", yaw: Math.PI / 2, pitch: 0 }); g.fastForward(1.5);
-  g.command({ type: "look", yaw: -0.15, pitch: 0 }); g.fastForward(2.6);
-  g.command({ type: "move", forward: 0, strafe: 0 });
-  g.command({ type: "look", yaw: 0.15, pitch: 0 });
-});
-await page.waitForTimeout(1000);
+await walkToChapel(page);
 await page.screenshot({ path: `${output}/01-rest.jpg`, quality: 95 });
 await page.evaluate(() => window.__game!.command({ type: "chargeStart" }));
 await page.waitForTimeout(1000);
