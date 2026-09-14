@@ -108,7 +108,7 @@ for row in range(18):
         for lo,hi in spans:
             if hi-lo<.025:continue
             # Seeded variation only shapes decorative stone; never used for security.
-            obj=box('Ashlar course',((lo+hi)/2,.025,z),(hi-lo-.015,.16+rng.uniform(0,.025),.48),wall,.012+rng.random()*.009)  # NOSONAR: deterministic art variation, not a security value.
+            obj=box('Ashlar course',((lo+hi)/2,.025,z),(hi-lo-.015,.16+rng.uniform(0,.025),.48),wall,.012+rng.random()*.009)  # NOSONAR
             obj.rotation_euler[1]=rng.uniform(-.006,.006)
 
 # Plinth and string courses separate large architectural volumes.
