@@ -100,12 +100,12 @@ export const STONE_WALL: PaintSpec = {
 };
 
 export const STONE_FLOOR: PaintSpec = {
-  base: [78, 72, 70],
-  dabs: [[96, 88, 82], [58, 54, 60], [104, 92, 76], [70, 70, 78]],
-  dabCount: 1600,
-  dabSize: [14, 60],
-  cracks: 22,
-  blocks: { w: 128, h: 128, gap: 3, shade: 0.3 },
+  base: [69, 65, 64],
+  dabs: [[103, 94, 84], [47, 46, 52], [116, 98, 75], [68, 72, 80], [82, 67, 58]],
+  dabCount: 2100,
+  dabSize: [10, 54],
+  cracks: 34,
+  blocks: { w: 160, h: 96, gap: 5, shade: 0.38 },
   seed: 23,
 };
 

@@ -23,4 +23,13 @@ describe("exported chapel texture coverage", () => {
       }
     }
   });
+
+  it("leaves the complete floor to the route-wide renderer", () => {
+    const glb = readFileSync("public/models/cenotaph/chapel-study.glb");
+    const jsonLength = glb.readUInt32LE(12);
+    const document = JSON.parse(glb.subarray(20, 20 + jsonLength).toString());
+    const materialNames = document.materials.map((material: { name: string }) => material.name);
+
+    expect(materialNames).not.toContain("Chapel worn paving");
+  });
 });

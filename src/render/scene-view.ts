@@ -34,6 +34,7 @@ import { buildTorch, flicker, type Torch } from "./torch";
 import { UniView } from "./uni-view";
 import { fitScale } from "./fit";
 import { chapelMaterialRole, chapelStoneSources } from "./chapel-materials";
+import { chapelFloorRegions, floorEdgeDebris, type FloorRegion } from "./floor-layout";
 
 /** Cenotaph kit: the column made in ticket 07 and the painted stone that goes with it. */
 const COLUMN_MODEL_URL = "models/cenotaph/column.glb";
@@ -133,9 +134,12 @@ export class SceneView {
     const floorMat = this.stone("floor", STONE_FLOOR, 9);
     const rubbleMat = this.stone("rubble", RUBBLE, 18);
 
-    const floor = this.slab("floor", -30, -30, 50, 50, 0, false);
-    floor.material = floorMat;
-    floor.receiveShadows = true;
+    for (const region of chapelFloorRegions()) {
+      const floor = this.floorSlab(region);
+      floor.material = floorMat;
+      floor.receiveShadows = true;
+    }
+    this.buildFloorDressing(rubbleMat);
     // The corridor and the portico keep their low ceiling; the room is left open, because the chapel
     // vault closes it seventeen metres up. Four slabs around the room do what one 80 m slab used to.
     const r = level.room;
@@ -358,6 +362,30 @@ export class SceneView {
     m.position = new Vector3((minX + maxX) / 2, y, (minZ + maxZ) / 2);
     if (flip) m.rotation.x = Math.PI;
     return m;
+  }
+
+  /** A route-shaped finish with UVs anchored in world space, so courses continue across every join. */
+  private floorSlab(region: FloorRegion): Mesh {
+    const floor = this.slab(region.name, region.minX, region.minZ, region.maxX, region.maxZ, 0, false);
+    const uvs = floor.getVerticesData("uv")!;
+    for (let i = 0; i < uvs.length; i += 2) {
+      uvs[i] = uvs[i]! + region.minX / TILE;
+      uvs[i + 1] = uvs[i + 1]! + region.minZ / TILE;
+    }
+    floor.setVerticesData("uv", uvs);
+    return floor;
+  }
+
+  private buildFloorDressing(material: PBRMaterial): void {
+    floorEdgeDebris().forEach((stone, i) => {
+      const chip = MeshBuilder.CreateIcoSphere(`floorChip${i}`, { radius: 0.5, subdivisions: 1, flat: true }, this.scene);
+      chip.scaling.set(stone.width, stone.height, stone.depth);
+      chip.rotation.set(i * 0.37, stone.turn, i * 0.19);
+      chip.position.set(stone.x, stone.height * 0.32, stone.z);
+      chip.material = material;
+      chip.receiveShadows = true;
+      this.shadow.addShadowCaster(chip);
+    });
   }
 
   /**
