@@ -484,7 +484,7 @@ export class SceneView {
     if (arch) {
       arch.parent = null;
       arch.material = this.stoneMaterial;
-      arch.receiveShadows = false;
+      arch.receiveShadows = true;
       const size = arch.getBoundingInfo().boundingBox.extendSize.scale(2);
       const MOUTH = 3; // the corridor opening the portico wall leaves
       const up = 4 / size.y;
@@ -498,7 +498,7 @@ export class SceneView {
     if (statue) {
       statue.parent = null;
       statue.material = this.stoneMaterial;
-      statue.receiveShadows = false;
+      statue.receiveShadows = true;
       const size = statue.getBoundingInfo().boundingBox.extendSize.scale(2);
       const up = 2.2 / size.y;
       statue.scaling = new Vector3(up, up, up);
@@ -581,7 +581,7 @@ export class SceneView {
     source.rotationQuaternion = null;
 
     source.material = this.stoneMaterial;
-    source.receiveShadows = false;
+    source.receiveShadows = true;
 
     const size = source.getBoundingInfo().boundingBox.extendSize.scale(2);
     const fit = fitScale({ x: size.x, y: size.y, z: size.z }, COLUMN_SIZE);
